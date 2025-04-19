@@ -1,12 +1,15 @@
 const express = require("express");
 const { DateTime } = require("luxon");
 const cors = require("cors");
+const fullChartRoute = require("./routes/fullChart");
 
 console.log("🚀 Starting AstroHabibi server...");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.use("/full-chart", fullChartRoute);
 
 app.post("/natal-chart", (req, res) => {
   const { date, time, lat, lon, timezone } = req.body;
