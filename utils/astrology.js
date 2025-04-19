@@ -1,6 +1,15 @@
 const se = require("swisseph");
+const path = require("path");
 
-se.swe_set_ephe_path(__dirname + "/../ephe"); // Path to ephe folder
+const ephePath = path.join(__dirname, "../ephe");
+console.log("🗂️ Setting Swiss Ephemeris path to:", ephePath);
+
+try {
+  se.swe_set_ephe_path(ephePath);
+  console.log("✅ Ephemeris path successfully set.");
+} catch (err) {
+  console.error("❌ Failed to set Ephemeris path:", err);
+}
 
 const getZodiacSign = (deg) => {
   const signs = [
@@ -28,10 +37,12 @@ const calculateFullChart = (julianDay, lat, lon) => {
   }
 
   const houseData = se.swe_houses(julianDay, lat, lon, "P");
-  const ascDegree = houseData.ascmc[se.SE_ASC];
-  const mcDegree = houseData.ascmc[se.SE_MC];
+  console.log("🔍 houseData returned from swe_houses:", houseData);
 
-  const houses = houseData.cusps.map((deg, idx) => ({
+  const ascDegree = houseData.ascendant;
+  const mcDegree = houseData.mc;
+
+  const houses = houseData.house.map((deg, idx) => ({
     house: idx + 1,
     degree: parseFloat(deg.toFixed(2)),
     sign: getZodiacSign(deg)

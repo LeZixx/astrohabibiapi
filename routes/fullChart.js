@@ -13,8 +13,8 @@ router.post("/", (req, res) => {
     const chart = calculateFullChart(julianDay, lat, lon);
     res.json(chart);
   } catch (err) {
-    console.error("Chart generation error:", err);
-    res.status(500).json({ error: "Failed to calculate birth chart." });
+    console.error("🔥 Full chart calculation failed with error:", err);
+    res.status(500).json({ error: err.message || "Failed to calculate birth chart." });
   }
 });
 
