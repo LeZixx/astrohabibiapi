@@ -1,4 +1,3 @@
-
 FROM node:18-slim
 
 # Install build tools for native modules
@@ -12,6 +11,9 @@ RUN npm install --production
 
 # Copy application code
 COPY . .
+
+# Ensure Swiss Ephemeris data is included
+COPY ephe ./ephe
 
 EXPOSE 8080
 
