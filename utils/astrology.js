@@ -1,12 +1,22 @@
 const swisseph = require('swisseph');
 const { DateTime } = require('luxon');
+const axios = require('axios');
+const tzlookup = require('tz-lookup');
 
-function calcJulianDayAndCoords(birthDate, birthTime, birthPlace, zone = 'UTC') {
+async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
+  const geoRes = await axios.get('https://nominatim.openstreetmap.org/search', {
+    params: { q: birthPlace, format: 'json', limit: 1 }
+  });
+  if (!geoRes.data.length) throw new Error('Location not found');
+  const lat = parseFloat(geoRes.data[0].lat);
+  const lon = parseFloat(geoRes.data[0].lon);
+  const zone = tzlookup(lat, lon);
+
   // 1. Parse in local zone
   const dt = DateTime.fromFormat(
     `${birthDate} ${birthTime}`,
     'd LLLL yyyy h:mm a',
-    { zone }
+    { zone, setZone: true }
   );
   if (!dt.isValid) {
     throw new Error(`Invalid date/time: ${birthDate} ${birthTime}`);
@@ -22,9 +32,7 @@ function calcJulianDayAndCoords(birthDate, birthTime, birthPlace, zone = 'UTC') 
   // 4. Convert UT to TT by adding ΔT
   const deltaT = swisseph.swe_deltat(jd);
   const julianDayTT = jd + deltaT / 86400;
-  // 5. TODO: geocode birthPlace into lat, lon
-  const lat = 0;
-  const lon = 0;
+
   return { julianDay: julianDayTT, lat, lon };
 }
 
