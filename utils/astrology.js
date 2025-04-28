@@ -50,9 +50,4 @@ function calculateFullChart(julianDay, lat, lon) {
   return { ascendant, houses, planets: planetPositions };
 }
 
-const port = process.env.PORT || 8080;
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
-
 module.exports = { calcJulianDayAndCoords, calculateFullChart };
