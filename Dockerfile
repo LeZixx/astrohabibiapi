@@ -1,13 +1,14 @@
-FROM node:18
+FROM node:18-slim
 
 WORKDIR /usr/src/app
 
+# Install dependencies first for cache efficiency
+COPY package*.json ./
+RUN npm install --production
+
+# Copy application code
 COPY . .
-RUN echo "📁 Contents of /usr/src/app:" && ls -la /usr/src/app
-RUN echo "DEBUG LISTING:" && ls -la /usr/src/app/utils
-RUN npm install
 
 EXPOSE 8080
 
 CMD ["npm", "start"]
-RUN ls -R /usr/src/app
