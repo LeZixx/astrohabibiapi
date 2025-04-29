@@ -3,6 +3,9 @@ const { DateTime } = require("luxon");
 const cors = require("cors");
 
 console.log("🚀 Starting AstroHabibi server...");
+const swisseph = require("swisseph");
+const path = require("path");
+swisseph.swe_set_ephe_path(path.join(__dirname, "ephe"));
 
 const app = express();
 app.use(cors());
