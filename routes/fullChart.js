@@ -15,7 +15,7 @@ router.post("/", async (req, res) => {
     if (typeof julianDay !== "number" || isNaN(julianDay)) {
       return res.status(400).json({ error: "Invalid birth date or time; could not compute Julian Day" });
     }
-    const fullChart = calculateFullChart(julianDay, lat, lon);
+    const fullChart = await calculateFullChart({ julianDay, lat, lon });
     return res.json({ julianDay, lat, lon, ...fullChart });
   } catch (err) {
     console.error("🔥 Full chart calculation failed with error:", err);
