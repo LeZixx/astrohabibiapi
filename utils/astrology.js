@@ -30,16 +30,16 @@ async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
     swisseph.SE_GREG_CAL
   );
   // 4. Convert UT to TT by adding ΔT
-  const deltaT = swisseph.swe_deltat(jd);
+  const { delta: deltaT } = swisseph.swe_deltat(jd);
   const julianDayTT = jd + deltaT / 86400;
 
-  console.log(
-    '🛠️ [astrology] raw JD(UT)=', jd,
-    'ΔT(sec)=', deltaT,
-    'JD(TT)=', julianDayTT,
-    'parsed dt =', dt.toISO(),
-    'zone =', zone
-  );
+ // console.log(
+  //  '🛠️ [astrology] raw JD(UT)=', jd,
+    //'ΔT(sec)=', deltaT,
+    //'JD(TT)=', julianDayTT,
+    //'parsed dt =', dt.toISO(),
+    //'zone =', zone
+ // );
 
 
   const result = { julianDay: julianDayTT, lat, lon };
