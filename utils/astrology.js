@@ -33,7 +33,19 @@ async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
   const deltaT = swisseph.swe_deltat(jd);
   const julianDayTT = jd + deltaT / 86400;
 
-  return { julianDay: julianDayTT, lat, lon };
+  console.log(
+    '🛠️ [astrology] raw JD(UT)=', jd,
+    'ΔT(sec)=', deltaT,
+    'JD(TT)=', julianDayTT,
+    'parsed dt =', dt.toISO(),
+    'zone =', zone
+  );
+
+
+  const result = { julianDay: julianDayTT, lat, lon };
+  console.log('🛠️ [astrology] calcJulianDayAndCoords result =', result);
+  return result;
+
 }
 
 function calculateFullChart(julianDay, lat, lon) {
