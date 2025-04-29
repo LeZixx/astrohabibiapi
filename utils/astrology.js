@@ -42,15 +42,21 @@ async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
  // );
 
 
-  const result = { julianDay: julianDayTT, lat, lon };
-  console.log('🛠️ [astrology] calcJulianDayAndCoords result =', result);
-  return result;
+  // force numeric types for safety
+  const jdNum  = Number(julianDayTT);
+  const latNum = Number(lat);
+  const lonNum = Number(lon);
+
+  console.log('🔍 calcJulianDayAndCoords →', { jd: jdNum, lat: latNum, lon: lonNum });
+
+  return { julianDay: jdNum, lat: latNum, lon: lonNum };
 
 }
 
 function calculateFullChart(julianDay, lat, lon) {
-  // 1. Compute house cusps and ascendant
-  const houseData = swisseph.swe_houses(julianDay, 0, lat, lon);
+  // compute house cusps and ascendant (passing latitude, longitude)
+  const houseData = swisseph.swe_houses(julianDay, lat, lon);
+  console.log('🔍 calculateFullChart input →', { julianDay, lat, lon });
   const ascendant = houseData.ascendant;
   const houses = houseData.cusps;
   // 2. Compute planet positions
