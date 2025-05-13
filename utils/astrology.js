@@ -53,7 +53,7 @@ async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
 
 }
 
-function calculateFullChart(julianDay, lat, lon) {
+async function calculateFullChart({ julianDay, lat, lon }) {
   console.log('🔍 calculateFullChart input →', { julianDay, lat, lon });
   // compute house cusps and ascendant (passing latitude, longitude)
   const houseData = swisseph.swe_houses(julianDay, lat, lon, swisseph.SE_HSYS_PLACIDUS);
