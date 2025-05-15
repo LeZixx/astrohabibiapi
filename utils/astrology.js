@@ -1,4 +1,6 @@
 const swisseph = require('swisseph');
+const path = require('path');
+swisseph.swe_set_ephe_path(path.join(__dirname, '../ephe'));
 const { DateTime } = require('luxon');
 const axios = require('axios');
 const tzlookup = require('tz-lookup');
