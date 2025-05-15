@@ -16,7 +16,8 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Invalid birth date or time; could not compute Julian Day" });
     }
     const fullChart = await calculateFullChart({ julianDay, lat, lon });
-    return res.json({ julianDay, lat, lon, ...fullChart });
+    const { ascendant, houses, planets } = fullChart;
+    return res.json({ julianDay, lat, lon, ascendant, houses, planets });
   } catch (err) {
     console.error("🔥 Full chart calculation failed with error:", err);
     return res.status(500).json({ error: err.message || "Failed to calculate birth chart." });
