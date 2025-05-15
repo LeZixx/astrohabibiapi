@@ -57,13 +57,10 @@ async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
 
 async function calculateFullChart({ julianDay, lat, lon }) {
   console.log('🔍 calculateFullChart input →', { julianDay, lat, lon });
-  // prepare output arrays for house cusps and ascendant/MC values
-  const cusps = new Array(13).fill(0);
-  const ascmc = new Array(10).fill(0);
-  swisseph.swe_houses(julianDay, lat, lon, 'P', cusps, ascmc);
-  // ascendant is the first element of ascmc, cusps are the house cusps
-  const ascendant = ascmc[0];
-  const houses = cusps;
+  // get house data and ascendant
+  const houseData = swisseph.swe_houses(julianDay, lat, lon, 'P');
+  const ascendant = houseData.ascendant;
+  const houses = houseData.cusps;
   // 2. Compute planet positions
   const planets = ['SE_SUN','SE_MOON','SE_MERCURY','SE_VENUS','SE_MARS','SE_JUPITER','SE_SATURN','SE_URANUS','SE_NEPTUNE','SE_PLUTO'];
   const planetPositions = planets.map(p => {
