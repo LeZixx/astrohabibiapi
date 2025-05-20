@@ -79,7 +79,7 @@ async function calculateFullChart({ julianDay, lat, lon }) {
       julianDay,
       lat,
       lon,
-      swisseph.SE_HSYS_PLACIDUS
+      houseSystem
     );
     const houses = houseData.cusps;
     const ascendant = houseData.ascendant;
