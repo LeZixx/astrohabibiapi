@@ -10,7 +10,7 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    const { jd: julianDay, lat, lon } = await calcJulianDayAndCoords(birthDate, birthTime, birthPlace);
+    const { julianDay, lat, lon } = await calcJulianDayAndCoords(birthDate, birthTime, birthPlace);
     // Reject if we couldn’t compute a valid Julian Day
     if (typeof julianDay !== "number" || isNaN(julianDay)) {
       return res.status(400).json({ error: "Invalid birth date or time; could not compute Julian Day" });
