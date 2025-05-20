@@ -70,7 +70,12 @@ async function calculateFullChart({ julianDay, lat, lon }) {
  // return { ascendant, houses, planets: planetPositions };
 
   try {
-    const houseData = swisseph.swe_houses(julianDay, lat, lon, 'P');
+    // ensure house system code is passed as string, fallback to 'P' if numeric
+    const houseSystem = typeof swisseph.SE_HSYS_PLACIDUS === 'string'
+      ? swisseph.SE_HSYS_PLACIDUS
+      : 'P';
+    console.log('🔧 house system used →', houseSystem);
+    const houseData = swisseph.swe_houses(julianDay, lat, lon, houseSystem);
     const houses = houseData.cusps;
     const ascendant = houseData.ascendant;
     // 2. Compute planet positions
