@@ -70,10 +70,9 @@ async function calculateFullChart({ julianDay, lat, lon }) {
  // return { ascendant, houses, planets: planetPositions };
 
   try {
-    // get house data and ascendant
-    const houseData = swisseph.swe_houses(julianDay, lat, lon, swisseph.SE_HSYS_PLACIDUS);
-    const ascendant = houseData.ascendant;
+    const houseData = swisseph.swe_houses(julianDay, lat, lon, 'P');
     const houses = houseData.cusps;
+    const ascendant = houseData.ascendant;
     // 2. Compute planet positions
     const planets = ['SE_SUN','SE_MOON','SE_MERCURY','SE_VENUS','SE_MARS','SE_JUPITER','SE_SATURN','SE_URANUS','SE_NEPTUNE','SE_PLUTO'];
     const planetPositions = planets.map(p => {
