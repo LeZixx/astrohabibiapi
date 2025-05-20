@@ -77,10 +77,9 @@ async function calculateFullChart({ julianDay, lat, lon }) {
     console.log('🔧 house system used →', houseSystem);
     const houseData = swisseph.swe_houses(
       julianDay,
-      swisseph.SEFLG_SWIEPH,
       lat,
       lon,
-      houseSystem
+      swisseph.SE_HSYS_PLACIDUS
     );
     const houses = houseData.cusps;
     const ascendant = houseData.ascendant;
