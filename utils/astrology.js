@@ -35,14 +35,6 @@ async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
   const { delta: deltaT } = swisseph.swe_deltat(jd);
   const julianDayTT = jd + deltaT / 86400;
 
- // console.log(
-  //  '🛠️ [astrology] raw JD(UT)=', jd,
-    //'ΔT(sec)=', deltaT,
-    //'JD(TT)=', julianDayTT,
-    //'parsed dt =', dt.toISO(),
-    //'zone =', zone
- // );
-
 
   // force numeric types for safety
   const jdNum  = Number(julianDayTT);
@@ -60,11 +52,25 @@ async function calculateFullChart({ julianDay, lat, lon }) {
   console.log('🔍 Available swisseph constants →', Object.keys(swisseph));
   console.log('🔍 SE_HSYS_PLACIDUS value →', swisseph.SE_HSYS_PLACIDUS);
   try {
-    const houseSystem = (typeof swisseph.SE_HSYS_PLACIDUS !== 'undefined')
-      ? swisseph.SE_HSYS_PLACIDUS
-      : 'P';
-    console.log('🔧 house system used →', houseSystem);
-    const rawHouseData = swisseph.swe_houses(julianDay, lat, lon, houseSystem);
+    // Try multiple house system parameters until one works
+    const hsCandidates = [
+      swisseph.SE_HSYS_PLACIDUS,
+      'P',
+      1
+    ].filter(x => typeof x !== 'undefined');
+    let rawHouseData;
+    for (const hs of hsCandidates) {
+      try {
+        console.log('🔧 trying swe_houses with →', hs);
+        rawHouseData = swisseph.swe_houses(julianDay, lat, lon, hs);
+        break;
+      } catch (e) {
+        console.warn(`⚠️ swe_houses failed with ${hs}, trying next…`);
+      }
+    }
+    if (!rawHouseData) {
+      throw new Error('All swe_houses calls failed');
+    }
     console.log('📦 Full rawHouseData structure →', JSON.stringify(rawHouseData, null, 2));
     const ascendant = rawHouseData.ascendant || rawHouseData.ac || rawHouseData[0];
     const houses = rawHouseData.cusps
