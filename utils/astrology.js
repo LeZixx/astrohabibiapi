@@ -57,32 +57,18 @@ async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
 
 async function calculateFullChart({ julianDay, lat, lon }) {
   console.log('🔍 calculateFullChart input →', { julianDay, lat, lon });
-  // get house data and ascendant
- // const houseData = swisseph.swe_houses(julianDay, lat, lon, 'P');
- // const ascendant = houseData.ascendant;
- // const houses = houseData.cusps;
-  // 2. Compute planet positions
- // const planets = ['SE_SUN','SE_MOON','SE_MERCURY','SE_VENUS','SE_MARS','SE_JUPITER','SE_SATURN','SE_URANUS','SE_NEPTUNE','SE_PLUTO'];
- // const planetPositions = planets.map(p => {
- //   const lonlat = swisseph.swe_calc_ut(julianDay, swisseph[p], swisseph.SEFLG_SWIEPH);
- //   return { name: p.replace('SE_',''), longitude: lonlat.longitude };
- // });
- // return { ascendant, houses, planets: planetPositions };
-
+  console.log('🔍 Available swisseph constants →', Object.keys(swisseph));
+  console.log('🔍 SE_HSYS_PLACIDUS value →', swisseph.SE_HSYS_PLACIDUS);
   try {
-    // ensure house system code is passed as string, fallback to 'P' if numeric
-    const houseSystem = typeof swisseph.SE_HSYS_PLACIDUS === 'string'
+    const houseSystem = (typeof swisseph.SE_HSYS_PLACIDUS !== 'undefined')
       ? swisseph.SE_HSYS_PLACIDUS
       : 'P';
     console.log('🔧 house system used →', houseSystem);
-    const houseData = swisseph.swe_houses(
-      julianDay,
-      lat,
-      lon,
-      houseSystem
-    );
-    const houses = houseData.cusps;
-    const ascendant = houseData.ascendant;
+    const rawHouseData = swisseph.swe_houses(julianDay, lat, lon, houseSystem);
+    console.log('📦 Full rawHouseData structure →', JSON.stringify(rawHouseData, null, 2));
+    const ascendant = rawHouseData.ascendant || rawHouseData.ac || rawHouseData[0];
+    const houses     = rawHouseData.cusps    || rawHouseData.houses || (Array.isArray(rawHouseData) ? rawHouseData.slice(1,13) : []);
+    console.log('🏠 Extracted houses & ascendant →', { ascendant, houses });
     // 2. Compute planet positions
     const planets = ['SE_SUN','SE_MOON','SE_MERCURY','SE_VENUS','SE_MARS','SE_JUPITER','SE_SATURN','SE_URANUS','SE_NEPTUNE','SE_PLUTO'];
     const planetPositions = planets.map(p => {
