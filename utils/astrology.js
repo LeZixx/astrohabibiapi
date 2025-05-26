@@ -67,7 +67,10 @@ async function calculateFullChart({ julianDay, lat, lon }) {
     const rawHouseData = swisseph.swe_houses(julianDay, lat, lon, houseSystem);
     console.log('📦 Full rawHouseData structure →', JSON.stringify(rawHouseData, null, 2));
     const ascendant = rawHouseData.ascendant || rawHouseData.ac || rawHouseData[0];
-    const houses     = rawHouseData.cusps    || rawHouseData.houses || (Array.isArray(rawHouseData) ? rawHouseData.slice(1,13) : []);
+    const houses = rawHouseData.cusps
+      || rawHouseData.houses
+      || rawHouseData.house
+      || (Array.isArray(rawHouseData) ? rawHouseData.slice(1,13) : []);
     console.log('🏠 Extracted houses & ascendant →', { ascendant, houses });
     // 2. Compute planet positions
     const planets = ['SE_SUN','SE_MOON','SE_MERCURY','SE_VENUS','SE_MARS','SE_JUPITER','SE_SATURN','SE_URANUS','SE_NEPTUNE','SE_PLUTO'];
