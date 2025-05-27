@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { calcJulianDayAndCoords, calculateFullChart } = require("../utils/astrology");
+const { interpretChart } = require("../utils/interpreter");
 
 router.post("/", async (req, res) => {
   const { birthDate, birthTime, birthPlace } = req.body;
@@ -17,7 +18,20 @@ router.post("/", async (req, res) => {
     }
     const fullChart = await calculateFullChart({ julianDay, lat, lon });
     const { ascendant, houses, planets } = fullChart;
-    return res.json({ julianDay, lat, lon, ascendant, houses, planets });
+
+    let response = { julianDay, lat, lon, ascendant, houses, planets };
+
+    if (req.query.withInterpretation === "true") {
+      try {
+        const interpretation = await interpretChart({ chartData: response, dialect: "Modern Standard Arabic" });
+        response.interpretation = interpretation;
+      } catch (interpretErr) {
+        console.warn("🛑 Failed to generate interpretation:", interpretErr.message);
+        response.interpretation = "Interpretation unavailable at the moment.";
+      }
+    }
+
+    return res.json(response);
   } catch (err) {
     console.error("🔥 Full chart calculation failed with error:", err);
     return res.status(500).json({ error: err.message || "Failed to calculate birth chart." });
