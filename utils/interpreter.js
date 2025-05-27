@@ -1,11 +1,12 @@
-
-
 const axios = require('axios');
 
 // Replace with your actual Sonar API endpoint and key
 const SONAR_ENDPOINT = 'https://api.perplexity.ai/chat/completions';
-const SONAR_API_KEY = process.env.SONAR_API_KEY || 
-async function interpretChart({ chartData, dialect = 'Modern Standard Arabic' }) {
+const SONAR_API_KEY = process.env.SONAR_API_KEY;
+if (!SONAR_API_KEY) {
+  throw new Error('SONAR_API_KEY is not set in environment variables');
+}
+const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' }) => {
   if (!chartData || !chartData.planets || !chartData.houses || !chartData.ascendant) {
     throw new Error('Incomplete chart data for interpretation');
   }
