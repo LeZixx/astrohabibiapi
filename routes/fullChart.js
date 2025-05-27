@@ -4,7 +4,7 @@ const { calcJulianDayAndCoords, calculateFullChart } = require("../utils/astrolo
 const { interpretChart } = require("../utils/interpreter");
 
 router.post("/", async (req, res) => {
-  const { birthDate, birthTime, birthPlace } = req.body;
+  const { birthDate, birthTime, birthPlace, dialect, withInterpretation } = req.body;
 
   if (!birthDate || !birthTime || !birthPlace) {
     return res.status(400).json({ error: "Missing required parameters" });
@@ -21,9 +21,9 @@ router.post("/", async (req, res) => {
 
     let response = { julianDay, lat, lon, ascendant, houses, planets };
 
-    if (req.query.withInterpretation === "true") {
+    if (withInterpretation && dialect) {
       try {
-        const interpretation = await interpretChart({ chartData: response, dialect: "Modern Standard Arabic" });
+        const interpretation = await interpretChart({ chartData: response, dialect });
         response.interpretation = interpretation;
       } catch (interpretErr) {
         console.warn("🛑 Failed to generate interpretation:", interpretErr.message);
