@@ -55,8 +55,13 @@ bot.on('message', async (msg) => {
         withInterpretation: true
       };
       const res = await axios.post(`${SERVICE_URL}/full-chart`, payload);
-      const reply = formatChartResponse(res.data);
-      return bot.sendMessage(chatId, reply, { parse_mode: 'Markdown' });
+      // 1️⃣ send only the chart summary
+      bot.sendMessage(chatId, formatChartSummary(res.data), { parse_mode: 'Markdown' });
+      // 2️⃣ prompt for interpretation
+      bot.sendMessage(chatId, '🔮 دعني أضع لك قراءة روحية مختصرة حسب موقع الكواكب والأبراج...', { parse_mode: 'Markdown' });
+      // save the last chart data for follow-up questions
+      state.lastChart = res.data;
+      return;
     }
   } catch (err) {
     console.error('Bot error:', err);
@@ -64,7 +69,7 @@ bot.on('message', async (msg) => {
   }
 });
 
-function formatChartResponse(data) {
+function formatChartSummary(data) {
   let text = `📜 *Your Birth Chart*\n`;
   text += `• Julian Day: \`${data.julianDay}\`\n`;
   text += `• Ascendant: \`${data.ascendant}°\`\n`;
@@ -76,10 +81,34 @@ function formatChartResponse(data) {
   data.planets.forEach(p => {
     text += `  - ${p.name}: \`${p.longitude}°\`\n`;
   });
-  if (data.interpretation) {
-    text += `\n🔮 *Interpretation:*\n${data.interpretation}`;
-  }
   return text;
 }
 
+function formatFullInterpretation(data) {
+  return data.interpretation;
+}
+
 module.exports = bot;
+
+// Catch-all handler for follow-up interpretation questions
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  const text = msg.text.trim();
+  const state = userState[chatId];
+  if (!state || !state.lastChart) return;
+  // prepend user question with instructions for Perplexity
+  const prompt = `Please avoid any explicit religious wording (like "Allah", "Ya ibn Allah"); use spiritual terminology, and use "Falak" instead of "Abraj". Question: ${text}`;
+  // ask interpretation endpoint
+  try {
+    const resp = await axios.post(`${SERVICE_URL}/interpret`, {
+      question: prompt,
+      chart: state.lastChart,
+      dialect: state.dialect || 'Lebanese'
+    });
+    const interp = resp.data.answer || resp.data.interpretation;
+    return bot.sendMessage(chatId, interp, { parse_mode: 'Markdown' });
+  } catch (err) {
+    console.error('Interpretation error:', err);
+    return bot.sendMessage(chatId, '❌ حدث خطأ أثناء التفسير. حاول مرة ثانية.');
+  }
+});
