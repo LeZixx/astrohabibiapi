@@ -11,22 +11,22 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
     throw new Error('Incomplete chart data for interpretation');
   }
 
-  const prompt = `
-  You are a professional astrologer. Write a personal, spiritual, yet grounded astrological interpretation in ${dialect} for this birth chart:
-  
-  Ascendant: ${chartData.ascendant}
-  Houses: ${JSON.stringify(chartData.houses)}
-  Planets: ${chartData.planets.map(p => `${p.name} at ${p.longitude.toFixed(2)}°`).join(', ')}
-
-  Focus on personality insights, life themes, and strengths. Keep it warm and wise, avoid technical jargon.
-  `;
+  const summary = [
+    `Ascendant: ${chartData.ascendant.toFixed(2)}`,
+    `Houses cusps: ${chartData.houses.map((h,i) => `${i+1}st @ ${h.toFixed(2)}°`).join(', ')}`,
+    `Planets: ${chartData.planets.map(p => {
+       const sign = p.sign || 'unknown'; 
+       const house = p.house || 'unknown';
+       return `${p.name} in ${sign} (House ${house})`;
+     }).join(', ')}`
+  ].join('\n');
 
   try {
     const response = await axios.post(SONAR_ENDPOINT, {
-      model: 'llama-3.1-sonar-large-128k-online', 
+      model: 'llama-3.1-sonar-large-128k-online',
       messages: [
-        { role: 'system', content: 'You are a professional astrologer.' },
-        { role: 'user', content: prompt }
+        { role: 'system', content: 'You are a professional, spiritual Arabic astrologer. Provide a warm, wise, and dialect-appropriate reading.' },
+        { role: 'user', content: `Here is a birth-chart summary in English:\n${summary}\nNow generate a spiritual, dialect-appropriate Arabic reading of these placements.` }
       ]
     }, {
       headers: {
