@@ -76,6 +76,14 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   }));
   const aspects = findMajorAspects(planetsWithHouses);
 
+  // Compute ascendant sign, degree, and minutes
+  const ascDeg = chartData.ascendant;
+  const ascSignIndex = Math.floor(ascDeg / 30);
+  const ascDegree = Math.floor(ascDeg % 30);
+  const ascMinutes = Math.floor(((ascDeg % 30) - ascDegree) * 60);
+  const ascSign = SIGNS[ascSignIndex] || 'unknown';
+  const ascStr = `${ascDegree}°${ascMinutes}′ ${ascSign}`;
+
   const planetsSummary = planetsWithHouses.map(p => {
     const degStr = `${p.degree}°${p.minutes}′`;
     const house = p.house || 'unknown';
@@ -85,7 +93,7 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   const aspectsSummary = aspects.length > 0 ? `Aspects: ${aspects.join(', ')}` : 'No major aspects detected.';
 
   const summaryPrompt = [
-    `Ascendant: ${chartData.ascendant.toFixed(2)}`,
+    `Ascendant: ${ascStr}`,
     `Houses cusps: ${chartData.houses.map((h,i) => `${i+1}st @ ${h.toFixed(2)}°`).join(', ')}`,
     `Planets: ${planetsSummary}`,
     aspectsSummary
@@ -98,7 +106,7 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
       model: 'llama-3.1-sonar-large-128k-online',
       messages: [
         { role: 'system', content: 'You are a professional, spiritual Arabic astrologer. Provide a warm, wise, and dialect-appropriate reading.' },
-        { role: 'user', content: `Here is a birth-chart summary in English:\n${summaryPrompt}\nNow generate a spiritual, dialect-appropriate Arabic reading of these placements.` }
+        { role: 'user', content: `Here is a birth-chart summary in English:\n${summaryPrompt}\nPlease generate a spiritual, dialect-appropriate Arabic reading in ${dialect}.` }
       ]
     }, {
       headers: {
