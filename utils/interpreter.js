@@ -6,6 +6,20 @@ const SONAR_API_KEY = process.env.SONAR_API_KEY;
 
 const SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
 
+function findHouse(longitude, houses) {
+  for (let i = 0; i < houses.length; i++) {
+    const start = houses[i];
+    const end = houses[(i + 1) % houses.length];
+    if (start < end) {
+      if (longitude >= start && longitude < end) return i + 1;
+    } else {
+      // wrap around 360°
+      if (longitude >= start || longitude < end) return i + 1;
+    }
+  }
+  return undefined;
+}
+
 function computePlanetPositions(planets) {
   return planets.map(p => {
     const longitude = p.longitude;
@@ -56,9 +70,13 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   }
 
   const planetsWithPos = computePlanetPositions(chartData.planets);
-  const aspects = findMajorAspects(planetsWithPos);
+  const planetsWithHouses = planetsWithPos.map(p => ({
+    ...p,
+    house: findHouse(p.longitude, chartData.houses)
+  }));
+  const aspects = findMajorAspects(planetsWithHouses);
 
-  const planetsSummary = planetsWithPos.map(p => {
+  const planetsSummary = planetsWithHouses.map(p => {
     const degStr = `${p.degree}°${p.minutes}′`;
     const house = p.house || 'unknown';
     return `${p.name} at ${degStr} ${p.sign} (House ${house})`;
