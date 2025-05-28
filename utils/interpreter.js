@@ -5,6 +5,7 @@ const SONAR_ENDPOINT = 'https://api.perplexity.ai/chat/completions';
 const SONAR_API_KEY = process.env.SONAR_API_KEY;
 
 const SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
+const ARABIC_SIGNS = ['الحمل','الثور','الجوزاء','السرطان','الأسد','العذراء','الميزان','العقرب','القوس','الجدي','الدلو','الحوت'];
 
 function findHouse(longitude, houses) {
   for (let i = 0; i < houses.length; i++) {
@@ -28,7 +29,10 @@ function computePlanetPositions(planets) {
     const minutes = Math.floor(((longitude % 30) - degree) * 60);
     return {
       ...p,
-      sign: SIGNS[signIndex] || 'unknown',
+      sign: {
+        signEn: SIGNS[signIndex] || 'unknown',
+        signAr: ARABIC_SIGNS[signIndex] || 'unknown'
+      },
       degree,
       minutes
     };
@@ -81,13 +85,14 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   const ascSignIndex = Math.floor(ascDeg / 30);
   const ascDegree = Math.floor(ascDeg % 30);
   const ascMinutes = Math.floor(((ascDeg % 30) - ascDegree) * 60);
-  const ascSign = SIGNS[ascSignIndex] || 'unknown';
-  const ascStr = `${ascDegree}°${ascMinutes}′ ${ascSign}`;
+  const ascSignAr = ARABIC_SIGNS[ascSignIndex] || 'unknown';
+  const ascSignEn = SIGNS[ascSignIndex] || 'unknown';
+  const ascStr = `${ascDegree}°${ascMinutes}′ ${ascSignAr}`;
 
   const planetsSummary = planetsWithHouses.map(p => {
     const degStr = `${p.degree}°${p.minutes}′`;
     const house = p.house || 'unknown';
-    return `${p.name} at ${degStr} ${p.sign} (House ${house})`;
+    return `${p.name} at ${degStr} ${p.sign.signAr} (House ${house})`;
   }).join(', ');
 
   const aspectsSummary = aspects.length > 0 ? `Aspects: ${aspects.join(', ')}` : 'No major aspects detected.';
