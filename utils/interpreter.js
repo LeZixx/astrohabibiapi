@@ -4,7 +4,6 @@ const axios = require('axios');
 const SONAR_ENDPOINT = 'https://api.perplexity.ai/chat/completions';
 const SONAR_API_KEY = process.env.SONAR_API_KEY;
 
-const SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
 const ARABIC_SIGNS = ['الحمل','الثور','الجوزاء','السرطان','الأسد','العذراء','الميزان','العقرب','القوس','الجدي','الدلو','الحوت'];
 
 function findHouse(longitude, houses) {
@@ -24,13 +23,13 @@ function findHouse(longitude, houses) {
 function computePlanetPositions(planets) {
   return planets.map(p => {
     const longitude = p.longitude;
-    const signIndex = Math.floor(longitude / 30);
-    const degree = Math.floor(longitude % 30);
-    const minutes = Math.floor(((longitude % 30) - degree) * 60);
+    const normLon = ((longitude % 360) + 360) % 360;
+    const signIndex = Math.floor(normLon / 30);
+    const degree = Math.floor(normLon % 30);
+    const minutes = Math.floor(((normLon % 30) - degree) * 60);
     return {
       ...p,
       sign: {
-        signEn: SIGNS[signIndex] || 'unknown',
         signAr: ARABIC_SIGNS[signIndex] || 'unknown'
       },
       degree,
@@ -81,12 +80,12 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   const aspects = findMajorAspects(planetsWithHouses);
 
   // Compute ascendant sign, degree, and minutes
-  const ascDeg = chartData.ascendant;
-  const ascSignIndex = Math.floor(ascDeg / 30);
-  const ascDegree = Math.floor(ascDeg % 30);
-  const ascMinutes = Math.floor(((ascDeg % 30) - ascDegree) * 60);
+  const ascDegRaw = chartData.ascendant;
+  const ascDegNorm = ((ascDegRaw % 360) + 360) % 360;
+  const ascSignIndex = Math.floor(ascDegNorm / 30);
+  const ascDegree = Math.floor(ascDegNorm % 30);
+  const ascMinutes = Math.floor(((ascDegNorm % 30) - ascDegree) * 60);
   const ascSignAr = ARABIC_SIGNS[ascSignIndex] || 'unknown';
-  const ascSignEn = SIGNS[ascSignIndex] || 'unknown';
   const ascStr = `${ascDegree}°${ascMinutes}′ ${ascSignAr}`;
 
   const planetsSummary = planetsWithHouses.map(p => {
@@ -99,7 +98,7 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
 
   const summaryPrompt = [
     `Ascendant: ${ascStr}`,
-    `Houses cusps: ${chartData.houses.map((h,i) => `${i+1}st @ ${h.toFixed(2)}°`).join(', ')}`,
+    `Houses cusps: ${chartData.houses.map((h,i) => `البيت ${i+1} @ ${h.toFixed(2)}°`).join(', ')}`,
     `Planets: ${planetsSummary}`,
     aspectsSummary
   ].join('\n');
