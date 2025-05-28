@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const { DateTime } = require("luxon");
 const cors = require("cors");
