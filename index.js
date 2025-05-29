@@ -16,6 +16,15 @@ app.use(cors());
 
 app.use(express.json());
 
+// handle malformed JSON bodies without crashing the server
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.warn('Invalid JSON received:', err.message);
+    return res.status(400).json({ error: 'Malformed JSON in request body' });
+  }
+  next(err);
+});
+
 // Debug logger for all requests
 app.use((req, res, next) => {
   console.log(`🕵️ [DEBUG] ${req.method} ${req.originalUrl} - body:`, req.body);
