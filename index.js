@@ -1,4 +1,7 @@
 require('dotenv').config();
+console.log('🔑 SONAR_API_KEY=', process.env.SONAR_API_KEY);
+console.log('🔑 TELEGRAM_BOT_TOKEN=', process.env.TELEGRAM_BOT_TOKEN);
+const interpretRoute = require('./routes/interpret');
 const express = require("express");
 const { DateTime } = require("luxon");
 const cors = require("cors");
@@ -24,6 +27,7 @@ const natalRoute = require('./routes/natalChart');
 
 app.use("/full-chart", fullChartRoute);
 app.use('/natal-chart', natalRoute);
+app.use('/interpret', interpretRoute);
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => console.log(`✅ Time API is live on port ${PORT}`));

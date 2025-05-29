@@ -4,6 +4,33 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 require('dotenv').config();
 
+const translations = {
+  Arabic: {
+    dialectPrompt: '🗣️ اختر لهجتك العربية:',
+    datePrompt: '🌟 الرجاء إدخال تاريخ ميلادك (مثال: 15 أغسطس 1990):',
+    timePrompt: '⏰ شكراً! الرجاء إدخال وقت ميلادك (مثال: 9:10 صباحاً):',
+    placePrompt: '📍 ممتاز! وأخيراً، أدخل مكان ميلادك (مثال: بيروت، لبنان):',
+    calculating: '🔮 يتم الآن حساب خريطتك الفلكية والقراءة الروحية، يرجى الانتظار...',
+    interpretationIntro: '🔮 دعني أضع لك قراءة روحية مختصرة حسب موقع الكواكب والأبراج...'
+  },
+  English: {
+    dialectPrompt: '',
+    datePrompt: '🌟 Please enter your birth date (e.g. 15 August 1990):',
+    timePrompt: '⏰ Thanks! Now please enter your birth time (e.g. 9:10 AM):',
+    placePrompt: '📍 Great! Finally, enter your birth place (e.g. Beirut, Lebanon):',
+    calculating: '🔮 Calculating your full chart and interpretation, please wait...',
+    interpretationIntro: '🔮 Here’s a spiritual reading based on your planetary positions...'
+  },
+  French: {
+    dialectPrompt: '',
+    datePrompt: '🌟 Veuillez entrer votre date de naissance (ex: 15 août 1990):',
+    timePrompt: '⏰ Merci ! Entrez maintenant votre heure de naissance (ex: 9:10):',
+    placePrompt: '📍 Parfait ! Enfin, entrez votre lieu de naissance (ex: Beyrouth, Liban):',
+    calculating: '🔮 Calcul de votre carte du ciel et de l\'interprétation spirituelle en cours...',
+    interpretationIntro: '🔮 Voici une lecture spirituelle basée sur vos positions planétaires...'
+  }
+};
+
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!BOT_TOKEN) {
   console.error('❌ TELEGRAM_BOT_TOKEN is not set in environment');
@@ -21,8 +48,10 @@ const userState = {};
 
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-  userState[chatId] = { step: 'date' };
-  bot.sendMessage(chatId, '🌟 Welcome to AstroHabibi! Please enter your birth date (e.g. 24 September 1992):');
+  userState[chatId] = { step: 'language' };
+  bot.sendMessage(chatId, '🌐 Choose your language: Arabic | English | French', {
+    reply_markup: { keyboard: [['Arabic','English','French']], one_time_keyboard: true }
+  });
 });
 
 bot.on('message', async (msg) => {
@@ -32,33 +61,78 @@ bot.on('message', async (msg) => {
   if (!state) return;
 
   try {
+    if (state.step === 'language') {
+      if (text === 'Arabic') {
+        state.language = 'Arabic';
+        bot.sendMessage(chatId, translations.Arabic.dialectPrompt, {
+          reply_markup: {
+            keyboard: [
+              ['🇱🇧 لبناني', '🇪🇬 مصري'],
+              ['🇸🇦 خليجي', '🇸🇾 شامي'],
+              ['🇲🇦 مغاربي', '🇮🇶 عراقي']
+            ],
+            one_time_keyboard: true
+          }
+        });
+        state.step = 'dialect';
+        return;
+      } else if (text === 'English' || text === 'French') {
+        state.language = text;
+        state.dialect = text;
+        state.step = 'date';
+        bot.sendMessage(chatId, translations[state.language].datePrompt, {
+          reply_markup: { remove_keyboard: true }
+        });
+        return;
+      } else {
+        // If invalid language choice, prompt again
+        bot.sendMessage(chatId, '🌐 Please choose a language from the keyboard: Arabic | English | French', {
+          reply_markup: { keyboard: [['Arabic','English','French']], one_time_keyboard: true }
+        });
+        return;
+      }
+    }
+
+    if (state.step === 'dialect') {
+      state.dialect = text;
+      state.step = 'date';
+      bot.sendMessage(chatId, translations[state.language].datePrompt, {
+        reply_markup: { remove_keyboard: true }
+      });
+      return;
+    }
+
     if (state.step === 'date') {
       state.birthDate = text;
       state.step = 'time';
-      return bot.sendMessage(chatId, '⏰ Thanks! Now please enter your birth time (e.g. 9:10 AM):');
+      return bot.sendMessage(chatId, translations[state.language].timePrompt, {
+        reply_markup: { remove_keyboard: true }
+      });
     }
     if (state.step === 'time') {
       state.birthTime = text;
       state.step = 'place';
-      return bot.sendMessage(chatId, '📍 Great! Finally, enter your birth place (e.g. Beirut, Lebanon):');
+      return bot.sendMessage(chatId, translations[state.language].placePrompt, {
+        reply_markup: { remove_keyboard: true }
+      });
     }
     if (state.step === 'place') {
       state.birthPlace = text;
       state.step = 'done';
-      bot.sendMessage(chatId, '🔮 Calculating your full chart and interpretation, please wait...');
+      bot.sendMessage(chatId, translations[state.language].calculating);
       // Call Cloud Run endpoint
       const payload = {
         birthDate: state.birthDate,
         birthTime: state.birthTime,
         birthPlace: state.birthPlace,
-        dialect: 'Lebanese',           // you can prompt for dialect too
+        dialect: state.dialect || 'Lebanese',           // you can prompt for dialect too
         withInterpretation: true
       };
       const res = await axios.post(`${SERVICE_URL}/full-chart`, payload);
       // 1️⃣ send only the chart summary
       bot.sendMessage(chatId, formatChartSummary(res.data), { parse_mode: 'Markdown' });
       // 2️⃣ prompt for interpretation
-      bot.sendMessage(chatId, '🔮 دعني أضع لك قراءة روحية مختصرة حسب موقع الكواكب والأبراج...', { parse_mode: 'Markdown' });
+      bot.sendMessage(chatId, translations[state.language].interpretationIntro, { parse_mode: 'Markdown' });
       // save the last chart data for follow-up questions
       state.lastChart = res.data;
       return;

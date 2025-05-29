@@ -1,6 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const { calcJulianDayAndCoords, calculateFullChart } = require("../utils/astrology");
+
+// helper to convert a degree to a zodiac sign name
+function degreeToSign(deg) {
+  const signs = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+  return signs[Math.floor((deg % 360) / 30)];
+}
+
 const { interpretChart } = require("../utils/interpreter");
 
 router.post("/", async (req, res) => {
@@ -19,7 +26,25 @@ router.post("/", async (req, res) => {
     const fullChart = await calculateFullChart({ julianDay, lat, lon });
     const { ascendant, houses, planets } = fullChart;
 
-    let response = { julianDay, lat, lon, ascendant, houses, planets };
+    // derive rising sign
+    const risingSign = degreeToSign(ascendant);
+    // label planets with sign & house number
+    const labeledPlanets = planets.map(p => {
+      const sign = degreeToSign(p.longitude);
+      // find house: first cusp greater than longitude, fallback to 12
+      const houseNumber = houses.findIndex(cusp => p.longitude < cusp) + 1 || 12;
+      return { ...p, sign, house: houseNumber };
+    });
+
+    let response = {
+      julianDay,
+      lat,
+      lon,
+      ascendant,
+      risingSign,
+      houses,
+      planets: labeledPlanets
+    };
 
     if (withInterpretation && dialect) {
       try {
