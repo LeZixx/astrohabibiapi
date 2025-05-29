@@ -175,11 +175,10 @@ bot.on('message', async (msg) => {
   // ask interpretation endpoint
   try {
     const resp = await axios.post(`${SERVICE_URL}/interpret`, {
-      question: prompt,
-      chart: state.lastChart,
+      chartData: state.lastChart,
       dialect: state.dialect || 'Lebanese'
     });
-    const interp = resp.data.answer || resp.data.interpretation;
+    const interp = resp.data.interpretation;
     return bot.sendMessage(chatId, interp, { parse_mode: 'Markdown' });
   } catch (err) {
     console.error('Interpretation error:', err);
