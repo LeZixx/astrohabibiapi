@@ -95,26 +95,123 @@ bot.on('message', async (msg) => {
 
     if (state.step === 'dialect') {
       state.dialect = text;
-      state.step = 'date';
-      bot.sendMessage(chatId, translations[state.language].datePrompt, {
-        reply_markup: { remove_keyboard: true }
+      state.step = 'birth-day';
+      return bot.sendMessage(chatId, '📅 اختر يوم ميلادك:', {
+        reply_markup: {
+          keyboard: [
+            ['1','2','3','4','5','6','7'],
+            ['8','9','10','11','12','13','14'],
+            ['15','16','17','18','19','20','21'],
+            ['22','23','24','25','26','27','28'],
+            ['29','30','31']
+          ],
+          one_time_keyboard: true
+        }
       });
-      return;
     }
 
-    if (state.step === 'date') {
-      state.birthDate = text;
-      state.step = 'time';
-      return bot.sendMessage(chatId, translations[state.language].timePrompt, {
-        reply_markup: { remove_keyboard: true }
+    // Handle birth day selection
+    if (state.step === 'birth-day') {
+      state.birthDay = text;
+      state.step = 'birth-month';
+      return bot.sendMessage(chatId, '📅 اختر شهر ميلادك:', {
+        reply_markup: {
+          keyboard: [
+            ['January','February','March'],
+            ['April','May','June'],
+            ['July','August','September'],
+            ['October','November','December']
+          ],
+          one_time_keyboard: true
+        }
       });
     }
-    if (state.step === 'time') {
-      state.birthTime = text;
+
+    // Handle birth month selection
+    if (state.step === 'birth-month') {
+      state.birthMonth = text;
+      state.step = 'birth-year';
+      // Generate a simple list of years; for example:
+      const years = [];
+      for (let y = 1950; y <= 2025; y += 5) years.push(y.toString());
+      const yearRows = [];
+      for (let i = 0; i < years.length; i += 3) {
+        yearRows.push(years.slice(i, i + 3));
+      }
+      return bot.sendMessage(chatId, '📅 اختر سنة ميلادك:', {
+        reply_markup: { keyboard: yearRows, one_time_keyboard: true }
+      });
+    }
+
+    // Handle birth year selection
+    if (state.step === 'birth-year') {
+      state.birthYear = text;
+      state.step = 'birth-hour';
+      return bot.sendMessage(chatId, '⏰ اختر ساعة الميلاد (1-12):', {
+        reply_markup: {
+          keyboard: [
+            ['1','2','3','4'],
+            ['5','6','7','8'],
+            ['9','10','11','12']
+          ],
+          one_time_keyboard: true
+        }
+      });
+    }
+
+    // Handle birth hour selection
+    if (state.step === 'birth-hour') {
+      state.birthHour = text;
+      state.step = 'birth-minute';
+      // Generate rows of minutes 00–59 in increments of 1
+      const minuteRows = [];
+      for (let start = 0; start < 60; start += 10) {
+        const row = [];
+        for (let m = start; m < start + 10; m++) {
+          row.push(m < 10 ? `0${m}` : `${m}`);
+        }
+        minuteRows.push(row);
+      }
+      return bot.sendMessage(chatId, '⏰ اختر دقيقة الميلاد (0-59):', {
+        reply_markup: {
+          keyboard: minuteRows,
+          one_time_keyboard: true
+        }
+      });
+    }
+
+    // Handle birth minute selection
+    if (state.step === 'birth-minute') {
+      state.birthMinute = text;
+      // Construct birthDate and birthTime in English format
+      state.birthDate = `${state.birthDay} ${state.birthMonth} ${state.birthYear}`;
+      state.birthTime = `${state.birthHour}:${state.birthMinute} AM`; 
       state.step = 'place';
       return bot.sendMessage(chatId, translations[state.language].placePrompt, {
         reply_markup: { remove_keyboard: true }
       });
+    }
+
+    if (state.step === 'place') {
+      state.birthPlace = text;
+      state.step = 'done';
+      bot.sendMessage(chatId, translations[state.language].calculating);
+      // Call Cloud Run endpoint
+      const payload = {
+        birthDate: state.birthDate,
+        birthTime: state.birthTime,
+        birthPlace: state.birthPlace,
+        dialect: state.dialect || 'Lebanese',           // you can prompt for dialect too
+        withInterpretation: true
+      };
+      const res = await axios.post(`${SERVICE_URL}/full-chart`, payload);
+      // 1️⃣ send only the chart summary
+      bot.sendMessage(chatId, formatChartSummary(res.data), { parse_mode: 'Markdown' });
+      // 2️⃣ prompt for interpretation
+      bot.sendMessage(chatId, translations[state.language].interpretationIntro, { parse_mode: 'Markdown' });
+      // save the last chart data for follow-up questions
+      state.lastChart = res.data;
+      return;
     }
     if (state.step === 'place') {
       state.birthPlace = text;
