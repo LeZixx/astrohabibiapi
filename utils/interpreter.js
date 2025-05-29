@@ -1,4 +1,6 @@
 const axios = require('axios');
+console.log('🎯 [utils/interpreter] module loaded');
+
 
 // Replace with your actual Sonar API endpoint and key
 const SONAR_ENDPOINT = 'https://api.perplexity.ai/chat/completions';
@@ -65,6 +67,7 @@ function findMajorAspects(planets) {
 }
 
 const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' }) => {
+  console.log('🎯 [utils/interpreter] interpretChart called with dialect:', dialect, 'and chartData keys:', Object.keys(chartData || {}));
   if (!SONAR_API_KEY) {
     throw new Error('SONAR_API_KEY is not set; please set the env var before interpreting.');
   }
