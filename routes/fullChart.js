@@ -9,10 +9,13 @@ function degreeToSign(deg) {
 }
 
 const { interpretChart } = require("../utils/interpreter");
+const { saveChart } = require("../utils/firestore");
 
 router.post("/", async (req, res) => {
-  const { birthDate, birthTime, birthPlace, dialect, withInterpretation } = req.body;
-
+  const { userId, birthDate, birthTime, birthPlace, dialect, withInterpretation } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: "Missing userId parameter" });
+  }
   if (!birthDate || !birthTime || !birthPlace) {
     return res.status(400).json({ error: "Missing required parameters" });
   }
@@ -54,6 +57,13 @@ router.post("/", async (req, res) => {
         console.warn("🛑 Failed to generate interpretation:", interpretErr.message);
         response.interpretation = "Interpretation unavailable at the moment.";
       }
+    }
+
+    // Save this chart data to Firestore under the user’s ID
+    try {
+      await saveChart(userId, response);
+    } catch (fsErr) {
+      console.warn("⚠️ Failed to save chart to Firestore:", fsErr);
     }
 
     return res.json(response);
