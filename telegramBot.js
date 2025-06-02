@@ -89,11 +89,19 @@ bot.on('message', async (msg) => {
       } else if (text === 'English' || text === 'French') {
         state.language = text;
         state.dialect = text;
-        state.step = 'date';
-        bot.sendMessage(chatId, translations[state.language].datePrompt, {
-          reply_markup: { remove_keyboard: true }
+        state.step = 'birth-day';
+        return bot.sendMessage(chatId, translations[state.language].dayPrompt, {
+          reply_markup: {
+            keyboard: [
+              ['1','2','3','4','5','6','7'],
+              ['8','9','10','11','12','13','14'],
+              ['15','16','17','18','19','20','21'],
+              ['22','23','24','25','26','27','28'],
+              ['29','30','31']
+            ],
+            one_time_keyboard: true
+          }
         });
-        return;
       } else {
         // If invalid language choice, prompt again
         bot.sendMessage(chatId, '🌐 Please choose a language from the keyboard: Arabic | English | French', {
@@ -311,8 +319,28 @@ bot.on('message', async (msg) => {
       chartData: state.lastChart,
       dialect: state.dialect || 'Lebanese'
     });
-    const interp = resp.data.interpretation;
-    return bot.sendMessage(chatId, interp, { parse_mode: 'Markdown' });
+    // Chunk and send interpretation if long
+    const interp = resp.data.interpretation || '';
+    const maxLength = 4000;
+    // Split into chunks without breaking words
+    let start = 0;
+    while (start < interp.length) {
+      let end = start + maxLength;
+      if (end < interp.length) {
+        // Try to break at last newline or space before maxLength
+        let slice = interp.slice(start, end);
+        const lastNewline = slice.lastIndexOf('\n');
+        const lastSpace = slice.lastIndexOf(' ');
+        const splitPos = Math.max(lastNewline, lastSpace);
+        if (splitPos > -1) {
+          end = start + splitPos;
+        }
+      }
+      const chunk = interp.slice(start, end);
+      await bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+      start = end;
+    }
+    return;
   } catch (err) {
     console.error('Interpretation error:', err);
     return bot.sendMessage(chatId, '❌ حدث خطأ أثناء التفسير. حاول مرة ثانية.');
