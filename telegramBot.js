@@ -4,6 +4,7 @@ console.log('🤖 [telegramBot.js] Loaded updated code at', new Date().toISOStri
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 require('dotenv').config();
+const { getLatestChart } = require('./utils/firestore');
 
 const translations = {
   Arabic: {
@@ -240,11 +241,13 @@ bot.on('message', async (msg) => {
       bot.sendMessage(chatId, translations[state.language].calculating);
 
       // Call Cloud Run endpoint to get chart data
+      const platformKey = `telegram-${chatId}`;
       const payload = {
-        birthDate: state.birthDate,
-        birthTime: state.birthTime,
+        userId:     platformKey,
+        birthDate:  state.birthDate,
+        birthTime:  state.birthTime,
         birthPlace: state.birthPlace,
-        dialect: state.dialect || 'Lebanese',
+        dialect:    state.dialect || 'Lebanese',
         withInterpretation: true
       };
       const res = await axios.post(`${SERVICE_URL}/full-chart`, payload);
@@ -255,35 +258,6 @@ bot.on('message', async (msg) => {
       // Send the interpretation intro
       await bot.sendMessage(chatId, translations[state.language].interpretationIntro, { parse_mode: 'Markdown' });
 
-      // Save chart for follow-up and immediately get interpretation
-      state.lastChart = res.data;
-
-      // Show "typing..." indicator and request interpretation
-      await bot.sendChatAction(chatId, 'typing');
-      const resp = await axios.post(`${SERVICE_URL}/interpret`, {
-        chartData: state.lastChart,
-        dialect: state.dialect || 'Lebanese'
-      });
-
-      // Chunk and send the interpretation text
-      const interp = resp.data.interpretation || '';
-      const maxLength = 4000;
-      let start = 0;
-      while (start < interp.length) {
-        let end = start + maxLength;
-        if (end < interp.length) {
-          let slice = interp.slice(start, end);
-          const lastNewline = slice.lastIndexOf('\n');
-          const lastSpace = slice.lastIndexOf(' ');
-          const splitPos = Math.max(lastNewline, lastSpace);
-          if (splitPos > -1) {
-            end = start + splitPos;
-          }
-        }
-        const chunk = interp.slice(start, end);
-        await bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
-        start = end;
-      }
       return;
     }
   } catch (err) {
@@ -318,27 +292,41 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text.trim();
   const state = userState[chatId];
-  if (!state || !state.lastChart) return;
-  // prepend user question with instructions for Perplexity
-  const prompt = `Please avoid any explicit religious wording (like "Allah", "Ya ibn Allah"); use spiritual terminology, and use "Falak" instead of "Abraj". Question: ${text}`;
-  // ask interpretation endpoint
-  try {
-    // Show “typing…” indicator immediately
-    await bot.sendChatAction(chatId, 'typing');
 
-    const resp = await axios.post(`${SERVICE_URL}/interpret`, {
-      chartData: state.lastChart,
-      dialect: state.dialect || 'Lebanese'
-    });
-    // Chunk and send interpretation if long
+  // If user is still in the birth-data flow, ignore here
+  if (state && state.step) return;
+
+  // Retrieve saved chart from Firestore
+  const platformKey = `telegram-${chatId}`;
+  let chartRecord;
+  try {
+    chartRecord = await getLatestChart(platformKey);
+  } catch (fsErr) {
+    console.error('Firestore error fetching chart:', fsErr);
+  }
+  if (!chartRecord || !chartRecord.rawChartData) {
+    return bot.sendMessage(
+      chatId,
+      '🙏 يرجى أولاً إنشاء خريطتك الفلكية عبر /start ثم اتّباع التعليمات.'
+    );
+  }
+  const chartData = chartRecord.rawChartData;
+
+  // Treat any incoming text as a question about the chart
+  try {
+    await bot.sendChatAction(chatId, 'typing');
+    const payload = {
+      chartData,
+      dialect:  state?.dialect || 'Lebanese',
+      question: text
+    };
+    const resp = await axios.post(`${SERVICE_URL}/interpret`, payload);
     const interp = resp.data.interpretation || '';
     const maxLength = 4000;
-    // Split into chunks without breaking words
     let start = 0;
     while (start < interp.length) {
       let end = start + maxLength;
       if (end < interp.length) {
-        // Try to break at last newline or space before maxLength
         let slice = interp.slice(start, end);
         const lastNewline = slice.lastIndexOf('\n');
         const lastSpace = slice.lastIndexOf(' ');
