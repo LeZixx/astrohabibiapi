@@ -1,3 +1,4 @@
+console.log('🤖 [telegramBot.js] Loaded updated code at', new Date().toISOString());
 // telegramBot.js
 
 const TelegramBot = require('node-telegram-bot-api');
@@ -7,27 +8,36 @@ require('dotenv').config();
 const translations = {
   Arabic: {
     dialectPrompt: '🗣️ اختر لهجتك العربية:',
-    datePrompt: '🌟 الرجاء إدخال تاريخ ميلادك (مثال: 15 أغسطس 1990):',
-    timePrompt: '⏰ شكراً! الرجاء إدخال وقت ميلادك (مثال: 9:10 صباحاً):',
-    placePrompt: '📍 ممتاز! وأخيراً، أدخل مكان ميلادك (مثال: بيروت، لبنان):',
-    calculating: '🔮 يتم الآن حساب خريطتك الفلكية والقراءة الروحية، يرجى الانتظار...',
+    dayPrompt:     '📅 اختر يوم ميلادك:',
+    monthPrompt:   '📅 اختر شهر ميلادك (1-12):',
+    yearPrompt:    '📅 اختر سنة ميلادك:',
+    hourPrompt:    '⏰ اختر ساعة الميلاد (0-23):',
+    minutePrompt:  '⏰ اختر دقيقة الميلاد (0-59):',
+    placePrompt:   '📍 ممتاز! وأخيراً، أدخل مكان ميلادك (مثال: بيروت، لبنان):',
+    calculating:   '🔮 يتم الآن حساب خريطتك الفلكية والقراءة الروحية، يرجى الانتظار...',
     interpretationIntro: '🔮 دعني أضع لك قراءة روحية مختصرة حسب موقع الكواكب والأبراج...'
   },
   English: {
-    dialectPrompt: '',
-    datePrompt: '🌟 Please enter your birth date (e.g. 15 August 1990):',
-    timePrompt: '⏰ Thanks! Now please enter your birth time (e.g. 9:10 AM):',
-    placePrompt: '📍 Great! Finally, enter your birth place (e.g. Beirut, Lebanon):',
-    calculating: '🔮 Calculating your full chart and interpretation, please wait...',
-    interpretationIntro: '🔮 Here’s a spiritual reading based on your planetary positions...'
+    dialectPrompt:     '',
+    dayPrompt:         '📅 Please choose your birth day:',
+    monthPrompt:       '📅 Please choose your birth month (1-12):',
+    yearPrompt:        '📅 Please choose your birth year:',
+    hourPrompt:        '⏰ Please choose your birth hour (0-23):',
+    minutePrompt:      '⏰ Please choose your birth minute (0-59):',
+    placePrompt:       '📍 Great! Finally, enter your birth place (e.g. Beirut, Lebanon):',
+    calculating:       '🔮 Calculating your full chart and interpretation, please wait...',
+    interpretationIntro:'🔮 Here’s a spiritual reading based on your planetary positions...'
   },
   French: {
-    dialectPrompt: '',
-    datePrompt: '🌟 Veuillez entrer votre date de naissance (ex: 15 août 1990):',
-    timePrompt: '⏰ Merci ! Entrez maintenant votre heure de naissance (ex: 9:10):',
-    placePrompt: '📍 Parfait ! Enfin, entrez votre lieu de naissance (ex: Beyrouth, Liban):',
-    calculating: '🔮 Calcul de votre carte du ciel et de l\'interprétation spirituelle en cours...',
-    interpretationIntro: '🔮 Voici une lecture spirituelle basée sur vos positions planétaires...'
+    dialectPrompt:     '',
+    dayPrompt:         '📅 Veuillez choisir le jour de naissance:',
+    monthPrompt:       '📅 Veuillez choisir le mois de naissance (1-12):',
+    yearPrompt:        '📅 Veuillez choisir l\'année de naissance:',
+    hourPrompt:        '⏰ Veuillez choisir l\'heure de naissance (0-23):',
+    minutePrompt:      '⏰ Veuillez choisir la minute de naissance (0-59):',
+    placePrompt:       '📍 Parfait ! Enfin, entrez votre lieu de naissance (ex: Beyrouth, Liban):',
+    calculating:       '🔮 Calcul de votre carte du ciel et de l\'interprétation spirituelle en cours...',
+    interpretationIntro:'🔮 Voici une lecture spirituelle basée sur vos positions planétaires...'
   }
 };
 
@@ -114,40 +124,7 @@ bot.on('message', async (msg) => {
     if (state.step === 'birth-day') {
       state.birthDay = text;
       state.step = 'birth-month';
-      return bot.sendMessage(chatId, '📅 اختر شهر ميلادك:', {
-        reply_markup: {
-          keyboard: [
-            ['January','February','March'],
-            ['April','May','June'],
-            ['July','August','September'],
-            ['October','November','December']
-          ],
-          one_time_keyboard: true
-        }
-      });
-    }
-
-    // Handle birth month selection
-    if (state.step === 'birth-month') {
-      state.birthMonth = text;
-      state.step = 'birth-year';
-      // Generate a simple list of years; for example:
-      const years = [];
-      for (let y = 1950; y <= 2025; y += 5) years.push(y.toString());
-      const yearRows = [];
-      for (let i = 0; i < years.length; i += 3) {
-        yearRows.push(years.slice(i, i + 3));
-      }
-      return bot.sendMessage(chatId, '📅 اختر سنة ميلادك:', {
-        reply_markup: { keyboard: yearRows, one_time_keyboard: true }
-      });
-    }
-
-    // Handle birth year selection
-    if (state.step === 'birth-year') {
-      state.birthYear = text;
-      state.step = 'birth-hour';
-      return bot.sendMessage(chatId, '⏰ اختر ساعة الميلاد (1-12):', {
+      return bot.sendMessage(chatId, translations[state.language].monthPrompt, {
         reply_markup: {
           keyboard: [
             ['1','2','3','4'],
@@ -159,11 +136,45 @@ bot.on('message', async (msg) => {
       });
     }
 
+    // Handle birth month selection
+    if (state.step === 'birth-month') {
+      state.birthMonth = text;
+      state.step = 'birth-year';
+      const years = [];
+      const currentYear = new Date().getFullYear();
+      for (let y = 1900; y <= currentYear; y++) {
+        years.push(y.toString());
+      }
+      const yearRows = [];
+      for (let i = 0; i < years.length; i += 3) {
+        yearRows.push(years.slice(i, i + 3));
+      }
+      return bot.sendMessage(chatId, translations[state.language].yearPrompt, {
+        reply_markup: { keyboard: yearRows, one_time_keyboard: true }
+      });
+    }
+
+    // Handle birth year selection
+    if (state.step === 'birth-year') {
+      state.birthYear = text;
+      state.step = 'birth-hour';
+      const hourRows = [];
+      for (let start = 0; start < 24; start += 6) {
+        const row = [];
+        for (let h = start; h < start + 6; h++) {
+          row.push(h.toString());
+        }
+        hourRows.push(row);
+      }
+      return bot.sendMessage(chatId, translations[state.language].hourPrompt, {
+        reply_markup: { keyboard: hourRows, one_time_keyboard: true }
+      });
+    }
+
     // Handle birth hour selection
     if (state.step === 'birth-hour') {
       state.birthHour = text;
       state.step = 'birth-minute';
-      // Generate rows of minutes 00–59 in increments of 1
       const minuteRows = [];
       for (let start = 0; start < 60; start += 10) {
         const row = [];
@@ -172,7 +183,7 @@ bot.on('message', async (msg) => {
         }
         minuteRows.push(row);
       }
-      return bot.sendMessage(chatId, '⏰ اختر دقيقة الميلاد (0-59):', {
+      return bot.sendMessage(chatId, translations[state.language].minutePrompt, {
         reply_markup: {
           keyboard: minuteRows,
           one_time_keyboard: true
@@ -183,9 +194,31 @@ bot.on('message', async (msg) => {
     // Handle birth minute selection
     if (state.step === 'birth-minute') {
       state.birthMinute = text;
-      // Construct birthDate and birthTime in English format
-      state.birthDate = `${state.birthDay} ${state.birthMonth} ${state.birthYear}`;
-      state.birthTime = `${state.birthHour}:${state.birthMinute} AM`; 
+      // Map numeric month to English month name
+      const monthNames = [
+        'January','February','March','April','May','June',
+        'July','August','September','October','November','December'
+      ];
+      const monthIndex = parseInt(state.birthMonth, 10) - 1;
+      const monthName = monthNames[monthIndex] || state.birthMonth;
+
+      state.birthDate = `${state.birthDay} ${monthName} ${state.birthYear}`;
+
+      // Convert 24-hour input to 12-hour format with AM/PM for birthTime
+      let hr = parseInt(state.birthHour, 10);
+      let ampm = 'AM';
+      if (hr === 0) {
+        hr = 12;
+        ampm = 'AM';
+      } else if (hr === 12) {
+        ampm = 'PM';
+      } else if (hr > 12) {
+        hr = hr - 12;
+        ampm = 'PM';
+      }
+      const minuteStr = state.birthMinute.padStart(2, '0');
+      state.birthTime = `${hr}:${minuteStr} ${ampm}`;
+
       state.step = 'place';
       return bot.sendMessage(chatId, translations[state.language].placePrompt, {
         reply_markup: { remove_keyboard: true }
@@ -271,6 +304,9 @@ bot.on('message', async (msg) => {
   const prompt = `Please avoid any explicit religious wording (like "Allah", "Ya ibn Allah"); use spiritual terminology, and use "Falak" instead of "Abraj". Question: ${text}`;
   // ask interpretation endpoint
   try {
+    // Show “typing…” indicator immediately
+    await bot.sendChatAction(chatId, 'typing');
+
     const resp = await axios.post(`${SERVICE_URL}/interpret`, {
       chartData: state.lastChart,
       dialect: state.dialect || 'Lebanese'
