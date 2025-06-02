@@ -236,43 +236,54 @@ bot.on('message', async (msg) => {
     if (state.step === 'place') {
       state.birthPlace = text;
       state.step = 'done';
+      // Inform user calculation is starting
       bot.sendMessage(chatId, translations[state.language].calculating);
-      // Call Cloud Run endpoint
+
+      // Call Cloud Run endpoint to get chart data
       const payload = {
         birthDate: state.birthDate,
         birthTime: state.birthTime,
         birthPlace: state.birthPlace,
-        dialect: state.dialect || 'Lebanese',           // you can prompt for dialect too
+        dialect: state.dialect || 'Lebanese',
         withInterpretation: true
       };
       const res = await axios.post(`${SERVICE_URL}/full-chart`, payload);
-      // 1️⃣ send only the chart summary
-      bot.sendMessage(chatId, formatChartSummary(res.data), { parse_mode: 'Markdown' });
-      // 2️⃣ prompt for interpretation
-      bot.sendMessage(chatId, translations[state.language].interpretationIntro, { parse_mode: 'Markdown' });
-      // save the last chart data for follow-up questions
+
+      // Send the chart summary
+      await bot.sendMessage(chatId, formatChartSummary(res.data), { parse_mode: 'Markdown' });
+
+      // Send the interpretation intro
+      await bot.sendMessage(chatId, translations[state.language].interpretationIntro, { parse_mode: 'Markdown' });
+
+      // Save chart for follow-up and immediately get interpretation
       state.lastChart = res.data;
-      return;
-    }
-    if (state.step === 'place') {
-      state.birthPlace = text;
-      state.step = 'done';
-      bot.sendMessage(chatId, translations[state.language].calculating);
-      // Call Cloud Run endpoint
-      const payload = {
-        birthDate: state.birthDate,
-        birthTime: state.birthTime,
-        birthPlace: state.birthPlace,
-        dialect: state.dialect || 'Lebanese',           // you can prompt for dialect too
-        withInterpretation: true
-      };
-      const res = await axios.post(`${SERVICE_URL}/full-chart`, payload);
-      // 1️⃣ send only the chart summary
-      bot.sendMessage(chatId, formatChartSummary(res.data), { parse_mode: 'Markdown' });
-      // 2️⃣ prompt for interpretation
-      bot.sendMessage(chatId, translations[state.language].interpretationIntro, { parse_mode: 'Markdown' });
-      // save the last chart data for follow-up questions
-      state.lastChart = res.data;
+
+      // Show "typing..." indicator and request interpretation
+      await bot.sendChatAction(chatId, 'typing');
+      const resp = await axios.post(`${SERVICE_URL}/interpret`, {
+        chartData: state.lastChart,
+        dialect: state.dialect || 'Lebanese'
+      });
+
+      // Chunk and send the interpretation text
+      const interp = resp.data.interpretation || '';
+      const maxLength = 4000;
+      let start = 0;
+      while (start < interp.length) {
+        let end = start + maxLength;
+        if (end < interp.length) {
+          let slice = interp.slice(start, end);
+          const lastNewline = slice.lastIndexOf('\n');
+          const lastSpace = slice.lastIndexOf(' ');
+          const splitPos = Math.max(lastNewline, lastSpace);
+          if (splitPos > -1) {
+            end = start + splitPos;
+          }
+        }
+        const chunk = interp.slice(start, end);
+        await bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+        start = end;
+      }
       return;
     }
   } catch (err) {
