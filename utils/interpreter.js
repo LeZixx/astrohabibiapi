@@ -109,6 +109,9 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   console.log('summaryPrompt:', summaryPrompt);
 
   try {
+
+    console.log('🕒 [interpreter] Sending prompt to Sonar at', new Date().toISOString());
+    const t0 = Date.now();
     const response = await axios.post(SONAR_ENDPOINT, {
       model: 'llama-3.1-sonar-large-128k-online',
       messages: [
@@ -121,7 +124,7 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
         'Content-Type': 'application/json'
       }
     });
-
+    console.log('🕒 [interpreter] Sonar returned at', new Date().toISOString(), 'elapsed (ms):', Date.now() - t0);
     return response.data?.choices?.[0]?.message?.content || 'No interpretation returned.';
   } catch (err) {
     console.error('🛑 Error calling Sonar:', err.response?.data || err.message);
