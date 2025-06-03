@@ -474,8 +474,8 @@ bot.on('message', async (msg) => {
   const text = msg.text.trim();
   const state = userState[chatId];
 
-  // If user is still in the birth-data flow, ignore here
-  if (state && state.step !== 'done') return;
+  // If user is not done with the birth-data flow, ignore here
+  if (!state || state.step !== 'done') return;
 
   // Retrieve saved chart from Firestore
   const platformKey = `telegram-${chatId}`;
