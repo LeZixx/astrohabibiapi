@@ -329,7 +329,6 @@ bot.on('message', async (msg) => {
       state.birthLat = parseFloat(found.lat);
       state.birthLon = parseFloat(found.lon);
       state.birthPlaceName = found.display_name;
-      state.step = 'done';
 
       await bot.sendMessage(chatId, translations[state.language].calculating);
 
@@ -395,6 +394,8 @@ bot.on('message', async (msg) => {
         );
       }
 
+      // Mark complete only _after_ sending all responses
+      state.step = 'done';
       return;
     }
   } catch (err) {
