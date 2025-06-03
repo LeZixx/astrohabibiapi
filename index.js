@@ -1,12 +1,16 @@
 require('dotenv').config();
 const admin = require('firebase-admin');
-if (process.env.NODE_ENV !== 'production') {
+try {
+  // Attempt to load local service account (development)
   const serviceAccount = require('./utils/astrohabibi-firestore-sa-key.json');
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
-} else {
+  console.log('🗄️ Firebase Admin initialized with service account.');
+} catch (err) {
+  // Fallback to default credentials (e.g., on Cloud Run)
   admin.initializeApp();
+  console.log('🗄️ Firebase Admin initialized with default credentials.');
 }
 console.log('🔑 SONAR_API_KEY=', process.env.SONAR_API_KEY);
 console.log('🔑 TELEGRAM_BOT_TOKEN=', process.env.TELEGRAM_BOT_TOKEN);
