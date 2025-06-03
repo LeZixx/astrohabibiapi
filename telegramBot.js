@@ -253,59 +253,146 @@ bot.on('message', async (msg) => {
       const minuteStr = state.birthMinute.padStart(2, '0');
       state.birthTime = `${hr}:${minuteStr} ${ampm}`;
 
-      state.step = 'place';
-      return bot.sendMessage(chatId, translations[state.language].placePrompt, {
-        reply_markup: { remove_keyboard: true }
-      });
+      // Now ask user to type their birthplace
+      state.step = 'birth-place-text';
+      const promptText = translations[state.language].placePrompt;
+      return bot.sendMessage(chatId, promptText);
     }
 
-    if (state.step === 'place') {
-      state.birthPlace = text;
-      state.step = 'done';
-      // Inform user calculation is starting
-      bot.sendMessage(chatId, translations[state.language].calculating);
 
-      // Call Cloud Run endpoint to get chart data
+    // Handle free-text birthplace entry
+    if (state.step === 'birth-place-text') {
+      const rawPlaceQuery = text;
+      let geoResults;
+      try {
+        const geoRes = await axios.get('https://nominatim.openstreetmap.org/search', {
+          params: { q: rawPlaceQuery, format: 'json', limit: 5 }
+        });
+        geoResults = geoRes.data;
+      } catch (err) {
+        console.error('✖ Geocoding error:', err);
+        return bot.sendMessage(chatId,
+          state.language === 'Arabic'
+            ? '❌ فشل في البحث عن المكان. حاول مرة أخرى.'
+            : state.language === 'French'
+              ? '❌ Échec de la géolocalisation. Veuillez réessayer.'
+              : '❌ Failed to look up that place. Please try again.'
+        );
+      }
+
+      if (!Array.isArray(geoResults) || geoResults.length === 0) {
+        return bot.sendMessage(chatId,
+          state.language === 'Arabic'
+            ? '❓ لم أجد أي مكان مطابق. حاول كتابة اسم آخر.'
+            : state.language === 'French'
+              ? '❓ Aucun lieu trouvé. Veuillez réessayer.'
+              : '❓ No matching places found. Please try different spelling.'
+        );
+      }
+
+      state.candidates = geoResults;
+      state.step = 'birth-place-confirm';
+
+      // Build keyboard rows of display_name
+      const keyboardRows = geoResults.map(place => [{ text: place.display_name }]);
+      return bot.sendMessage(
+        chatId,
+        state.language === 'Arabic'
+          ? '📌 اختر أقرب تطابق لبلدتك:'
+          : state.language === 'French'
+            ? '📌 Choisissez le lieu correspondant :'
+            : '📌 Please choose the best match for your birthplace:',
+        {
+          reply_markup: {
+            keyboard: keyboardRows,
+            one_time_keyboard: true,
+            resize_keyboard: true
+          }
+        }
+      );
+    }
+
+    // Handle selection of a geocoded birthplace
+    if (state.step === 'birth-place-confirm') {
+      const chosenText = text;
+      const found = (state.candidates || []).find(c => c.display_name === chosenText);
+      if (!found) {
+        return bot.sendMessage(chatId,
+          state.language === 'Arabic'
+            ? '❌ الرجاء الضغط على أحد الخيارات المعروضة بالأسفل.'
+            : state.language === 'French'
+              ? '❌ Veuillez sélectionner une option ci-dessous.'
+              : '❌ Please choose one of the buttons below.'
+        );
+      }
+
+      state.birthLat = parseFloat(found.lat);
+      state.birthLon = parseFloat(found.lon);
+      state.birthPlaceName = found.display_name;
+      state.step = 'done';
+
+      await bot.sendMessage(chatId, translations[state.language].calculating);
+
       const platformKey = `telegram-${chatId}`;
       const payload = {
-        userId:     platformKey,
-        birthDate:  state.birthDate,
-        birthTime:  state.birthTime,
-        birthPlace: state.birthPlace,
-        dialect:    state.dialect || 'Lebanese',
+        userId:       platformKey,
+        birthDate:    state.birthDate,
+        birthTime:    state.birthTime,
+        birthPlace:   state.birthPlaceName,
+        latitude:     state.birthLat,
+        longitude:    state.birthLon,
+        dialect:      state.language === 'Arabic' ? 'MSA' : state.language,
         withInterpretation: true
       };
-      const res = await axios.post(`${SERVICE_URL}/full-chart`, payload);
 
-      // Send the chart summary
-      await bot.sendMessage(chatId, formatChartSummary(res.data, state.language), { parse_mode: 'Markdown' });
+      let chartRes;
+      try {
+        chartRes = await axios.post(`${SERVICE_URL}/full-chart`, payload);
+      } catch (err) {
+        console.error('✖ /full-chart error:', err);
+        return bot.sendMessage(chatId,
+          state.language === 'Arabic'
+            ? '❌ فشل في حساب خريطتك. حاول مرة أخرى لاحقًا.'
+            : state.language === 'French'
+              ? '❌ Échec du calcul de votre carte. Veuillez réessayer plus tard.'
+              : '❌ Failed to calculate your chart. Please try again later.'
+        );
+      }
 
-      // Immediately fetch and send the full interpretation
+      await bot.sendMessage(
+        chatId,
+        formatChartSummary(chartRes.data, state.language),
+        { parse_mode: 'Markdown' }
+      );
+
       await bot.sendChatAction(chatId, 'typing');
       try {
         const interpResp = await axios.post(`${SERVICE_URL}/interpret`, {
-          chartData: res.data,
-          dialect: state.dialect || 'Lebanese'
+          chartData: chartRes.data,
+          dialect:   state.language === 'Arabic' ? 'MSA' : state.language
         });
-        const interpText = interpResp.data.interpretation || '';
-        const maxLen = 4000;
-        let startIdx = 0;
-        while (startIdx < interpText.length) {
-          let endIdx = startIdx + maxLen;
-          if (endIdx < interpText.length) {
-            let slice = interpText.slice(startIdx, endIdx);
-            const lastNewline = slice.lastIndexOf('\n');
-            const lastSpace = slice.lastIndexOf(' ');
-            const splitPos = Math.max(lastNewline, lastSpace);
-            if (splitPos > -1) endIdx = startIdx + splitPos;
+        const fullText = interpResp.data.interpretation || '';
+        let idx = 0, maxLen = 4000;
+        while (idx < fullText.length) {
+          let endIdx = Math.min(idx + maxLen, fullText.length);
+          if (endIdx < fullText.length) {
+            const slice = fullText.slice(idx, endIdx);
+            const cut = Math.max(slice.lastIndexOf('\n'), slice.lastIndexOf(' '));
+            if (cut > -1) endIdx = idx + cut;
           }
-          const chunk = interpText.slice(startIdx, endIdx);
+          const chunk = fullText.slice(idx, endIdx);
           await bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
-          startIdx = endIdx;
+          idx = endIdx;
         }
       } catch (interpErr) {
-        console.error('Error fetching interpretation:', interpErr);
-        await bot.sendMessage(chatId, '❌ حدث خطأ أثناء جلب التفسير. حاول مرة أخرى لاحقاً.');
+        console.error('✖ Interpretation error:', interpErr);
+        await bot.sendMessage(chatId,
+          state.language === 'Arabic'
+            ? '❌ حدث خطأ أثناء جلب التفسير. حاول مرة أخرى لاحقًا.'
+            : state.language === 'French'
+              ? '❌ Une erreur est survenue lors de l’interprétation. Réessayez plus tard.'
+              : '❌ Failed to fetch interpretation. Please try again later.'
+        );
       }
 
       return;
