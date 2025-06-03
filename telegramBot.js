@@ -435,13 +435,15 @@ function formatChartSummary(data, language = 'English') {
     ? 'Maisons'
     : 'Houses';
   lines.push(`• ${housesLabel}:`);
-  data.houses.forEach((h) => {
-    const hDet = degreeToSignDetails(h.longitude, language);
+  data.houses.forEach((h, i) => {
+    // h is a numeric degree for the cusp of house i+1
+    const hDet = degreeToSignDetails(h, language);
+    const houseNumber = i + 1;
     const houseLabel = isAr
-      ? `  البيت ${h.houseNumber}`
+      ? `البيت ${houseNumber}`
       : isFr
-      ? `  Maison ${h.houseNumber}`
-      : `  House ${h.houseNumber}`;
+      ? `Maison ${houseNumber}`
+      : `House ${houseNumber}`;
     lines.push(`  - ${houseLabel}: \`${hDet.signName} ${hDet.degree}°${hDet.minutes}′\``);
   });
 
@@ -453,12 +455,13 @@ function formatChartSummary(data, language = 'English') {
     : 'Planets';
   lines.push(`• ${planetLabel}:`);
   data.planets.forEach(p => {
+    // p.longitude is numeric
     const pDet = degreeToSignDetails(p.longitude, language);
     const pLabel = isAr
-      ? `${p.name} في ${p.signNameAr}`
+      ? `${p.name} في ${pDet.signName}`
       : isFr
-      ? `${p.name} en ${p.signNameEn}`
-      : `${p.name} in ${p.signNameEn}`;
+      ? `${p.name} en ${pDet.signName}`
+      : `${p.name} in ${pDet.signName}`;
     lines.push(`  - ${pLabel} ${pDet.degree}°${pDet.minutes}′`);
   });
 
