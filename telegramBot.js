@@ -19,7 +19,30 @@ try {
   console.log('🗄️ Firebase Admin initialized with default credentials.');
 }
 
+
 const { getLatestChart } = require('./utils/firestore');
+
+// Helper to convert a degree to sign name and degrees/minutes
+function degreeToSignDetails(deg, language) {
+  // Sign names in English and Arabic (MSA)
+  const signsEn = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+  const signsAr = ['الحمل','الثور','الجوزاء','السرطان','الأسد','العذراء','الميزان','العقرب','القوس','الجدي','الدلو','الحوت'];
+  const signsFr = ['Bélier','Taureau','Gémeaux','Cancer','Lion','Vierge','Balance','Scorpion','Sagittaire','Capricorne','Verseau','Poissons'];
+  const norm = ((deg % 360) + 360) % 360;
+  const signIndex = Math.floor(norm / 30);
+  const degInSign = norm - signIndex * 30;
+  const degree = Math.floor(degInSign);
+  const minutes = Math.round((degInSign - degree) * 60);
+  let signName;
+  if (language === 'Arabic') {
+    signName = signsAr[signIndex];
+  } else if (language === 'French') {
+    signName = signsFr[signIndex];
+  } else {
+    signName = signsEn[signIndex];
+  }
+  return { signName, degree, minutes };
+}
 
 const translations = {
   Arabic: {
@@ -45,15 +68,15 @@ const translations = {
     interpretationIntro:'🔮 Here’s a spiritual reading based on your planetary positions...'
   },
   French: {
-    dialectPrompt:     '',
-    dayPrompt:         '📅 Veuillez choisir le jour de naissance:',
-    monthPrompt:       '📅 Veuillez choisir le mois de naissance (1-12):',
-    yearPrompt:        '📅 Veuillez choisir l\'année de naissance:',
-    hourPrompt:        '⏰ Veuillez choisir l\'heure de naissance (0-23):',
-    minutePrompt:      '⏰ Veuillez choisir la minute de naissance (0-59):',
-    placePrompt:       '📍 Parfait ! Enfin, entrez votre lieu de naissance (ex: Beyrouth, Liban):',
-    calculating:       '🔮 Calcul de votre carte du ciel et de l\'interprétation spirituelle en cours...',
-    interpretationIntro:'🔮 Voici une lecture spirituelle basée sur vos positions planétaires...'
+    dialectPrompt: '',
+    dayPrompt: '📅 Veuillez choisir le jour de naissance:',
+    monthPrompt: '📅 Veuillez choisir le mois de naissance (1-12):',
+    yearPrompt: "📅 Veuillez choisir l'année de naissance:",
+    hourPrompt: '⏰ Veuillez choisir l\'heure de naissance (0-23):',
+    minutePrompt: '⏰ Veuillez choisir la minute de naissance (0-59):',
+    placePrompt: '📍 Parfait ! Enfin, entrez votre lieu de naissance (ex: Beyrouth, Liban):',
+    calculating: '🔮 Calcul de votre carte du ciel et de l\'interprétation spirituelle en cours...',
+    interpretationIntro: '🔮 Voici une lecture spirituelle basée sur vos positions planétaires...'
   }
 };
 
@@ -90,18 +113,20 @@ bot.on('message', async (msg) => {
     if (state.step === 'language') {
       if (text === 'Arabic') {
         state.language = 'Arabic';
-        bot.sendMessage(chatId, translations.Arabic.dialectPrompt, {
+        state.dialect = 'MSA';
+        state.step = 'birth-day';
+        return bot.sendMessage(chatId, translations.Arabic.dayPrompt, {
           reply_markup: {
             keyboard: [
-              ['🇱🇧 لبناني', '🇪🇬 مصري'],
-              ['🇸🇦 خليجي', '🇸🇾 شامي'],
-              ['🇲🇦 مغاربي', '🇮🇶 عراقي']
+              ['1','2','3','4','5','6','7'],
+              ['8','9','10','11','12','13','14'],
+              ['15','16','17','18','19','20','21'],
+              ['22','23','24','25','26','27','28'],
+              ['29','30','31']
             ],
             one_time_keyboard: true
           }
         });
-        state.step = 'dialect';
-        return;
       } else if (text === 'English' || text === 'French') {
         state.language = text;
         state.dialect = text;
@@ -127,22 +152,7 @@ bot.on('message', async (msg) => {
       }
     }
 
-    if (state.step === 'dialect') {
-      state.dialect = text;
-      state.step = 'birth-day';
-      return bot.sendMessage(chatId, '📅 اختر يوم ميلادك:', {
-        reply_markup: {
-          keyboard: [
-            ['1','2','3','4','5','6','7'],
-            ['8','9','10','11','12','13','14'],
-            ['15','16','17','18','19','20','21'],
-            ['22','23','24','25','26','27','28'],
-            ['29','30','31']
-          ],
-          one_time_keyboard: true
-        }
-      });
-    }
+    // Removed the entire if (state.step === 'dialect') block
 
     // Handle birth day selection
     if (state.step === 'birth-day') {
@@ -268,10 +278,35 @@ bot.on('message', async (msg) => {
       const res = await axios.post(`${SERVICE_URL}/full-chart`, payload);
 
       // Send the chart summary
-      await bot.sendMessage(chatId, formatChartSummary(res.data), { parse_mode: 'Markdown' });
+      await bot.sendMessage(chatId, formatChartSummary(res.data, state.language), { parse_mode: 'Markdown' });
 
-      // Send the interpretation intro
-      await bot.sendMessage(chatId, translations[state.language].interpretationIntro, { parse_mode: 'Markdown' });
+      // Immediately fetch and send the full interpretation
+      await bot.sendChatAction(chatId, 'typing');
+      try {
+        const interpResp = await axios.post(`${SERVICE_URL}/interpret`, {
+          chartData: res.data,
+          dialect: state.dialect || 'Lebanese'
+        });
+        const interpText = interpResp.data.interpretation || '';
+        const maxLen = 4000;
+        let startIdx = 0;
+        while (startIdx < interpText.length) {
+          let endIdx = startIdx + maxLen;
+          if (endIdx < interpText.length) {
+            let slice = interpText.slice(startIdx, endIdx);
+            const lastNewline = slice.lastIndexOf('\n');
+            const lastSpace = slice.lastIndexOf(' ');
+            const splitPos = Math.max(lastNewline, lastSpace);
+            if (splitPos > -1) endIdx = startIdx + splitPos;
+          }
+          const chunk = interpText.slice(startIdx, endIdx);
+          await bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+          startIdx = endIdx;
+        }
+      } catch (interpErr) {
+        console.error('Error fetching interpretation:', interpErr);
+        await bot.sendMessage(chatId, '❌ حدث خطأ أثناء جلب التفسير. حاول مرة أخرى لاحقاً.');
+      }
 
       return;
     }
@@ -281,19 +316,63 @@ bot.on('message', async (msg) => {
   }
 });
 
-function formatChartSummary(data) {
-  let text = `📜 *Your Birth Chart*\n`;
-  text += `• Julian Day: \`${data.julianDay}\`\n`;
-  text += `• Ascendant: \`${data.ascendant}°\`\n`;
-  text += `• Houses:\n`;
-  data.houses.forEach((h, i) => {
-    text += `  - House ${i+1}: \`${h}°\`\n`;
+
+function formatChartSummary(data, language = 'English') {
+  const isAr = language === 'Arabic';
+  const isFr = language === 'French';
+  const lines = [];
+
+  const title = isAr
+    ? '📜 مخططك الفلكي'
+    : isFr
+    ? '📜 Votre carte du ciel'
+    : '📜 Your Birth Chart';
+  lines.push(title);
+
+  // Ascendant
+  const asc = degreeToSignDetails(data.ascendant, language);
+  const ascLabel = isAr
+    ? 'الطالع'
+    : isFr
+    ? 'Ascendant'
+    : 'Ascendant';
+  lines.push(`• ${ascLabel}: \`${asc.signName} ${asc.degree}°${asc.minutes}′\``);
+
+  // Houses
+  const housesLabel = isAr
+    ? 'البيوت'
+    : isFr
+    ? 'Maisons'
+    : 'Houses';
+  lines.push(`• ${housesLabel}:`);
+  data.houses.forEach((h) => {
+    const hDet = degreeToSignDetails(h.longitude, language);
+    const houseLabel = isAr
+      ? `  البيت ${h.houseNumber}`
+      : isFr
+      ? `  Maison ${h.houseNumber}`
+      : `  House ${h.houseNumber}`;
+    lines.push(`  - ${houseLabel}: \`${hDet.signName} ${hDet.degree}°${hDet.minutes}′\``);
   });
-  text += `• Planets:\n`;
+
+  // Planets
+  const planetLabel = isAr
+    ? 'الكواكب'
+    : isFr
+    ? 'Planètes'
+    : 'Planets';
+  lines.push(`• ${planetLabel}:`);
   data.planets.forEach(p => {
-    text += `  - ${p.name}: \`${p.longitude}°\`\n`;
+    const pDet = degreeToSignDetails(p.longitude, language);
+    const pLabel = isAr
+      ? `${p.name} في ${p.signNameAr}`
+      : isFr
+      ? `${p.name} en ${p.signNameEn}`
+      : `${p.name} in ${p.signNameEn}`;
+    lines.push(`  - ${pLabel} ${pDet.degree}°${pDet.minutes}′`);
   });
-  return text;
+
+  return lines.join('\n');
 }
 
 function formatFullInterpretation(data) {
