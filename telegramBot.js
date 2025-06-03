@@ -4,6 +4,21 @@ console.log('🤖 [telegramBot.js] Loaded updated code at', new Date().toISOStri
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 require('dotenv').config();
+
+const admin = require('firebase-admin');
+try {
+  // For local development: load service account key
+  const serviceAccount = require('./utils/astrohabibi-firestore-sa-key.json');
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+  console.log('🗄️ Firebase Admin initialized with service account.');
+} catch (err) {
+  // In production or if JSON not present, use default credentials
+  admin.initializeApp();
+  console.log('🗄️ Firebase Admin initialized with default credentials.');
+}
+
 const { getLatestChart } = require('./utils/firestore');
 
 const translations = {
