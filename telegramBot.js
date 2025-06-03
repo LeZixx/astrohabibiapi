@@ -363,6 +363,8 @@ bot.on('message', async (msg) => {
         formatChartSummary(chartRes.data, state.language),
         { parse_mode: 'Markdown' }
       );
+      // Save in-memory for follow-ups
+      state.lastChart = chartRes.data;
 
       await bot.sendChatAction(chatId, 'typing');
       try {
@@ -478,21 +480,25 @@ bot.on('message', async (msg) => {
   // If user is not done with the birth-data flow, ignore here
   if (!state || state.step !== 'done') return;
 
-  // Retrieve saved chart from Firestore
-  const platformKey = `telegram-${chatId}`;
-  let chartRecord;
-  try {
-    chartRecord = await getLatestChart(platformKey);
-  } catch (fsErr) {
-    console.error('Firestore error fetching chart:', fsErr);
+  // Prefer in-memory lastChart; otherwise fetch from Firestore
+  let chartData = state.lastChart;
+  if (!chartData) {
+    const platformKey = `telegram-${chatId}`;
+    try {
+      const chartRecord = await getLatestChart(platformKey);
+      if (chartRecord && chartRecord.rawChartData) {
+        chartData = chartRecord.rawChartData;
+      }
+    } catch (fsErr) {
+      console.error('Firestore error fetching chart:', fsErr);
+    }
   }
-  if (!chartRecord || !chartRecord.rawChartData) {
+  if (!chartData) {
     return bot.sendMessage(
       chatId,
       '🙏 يرجى أولاً إنشاء خريطتك الفلكية عبر /start ثم اتّباع التعليمات.'
     );
   }
-  const chartData = chartRecord.rawChartData;
 
   // Treat any incoming text as a question about the chart
   try {
