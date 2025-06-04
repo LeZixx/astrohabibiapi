@@ -400,9 +400,7 @@ bot.on('message', async (msg) => {
       // Now ask user to type their birthplace
       state.step = 'birth-place-text';
       const promptText = translations[state.language].placePrompt;
-      return bot.sendMessage(chatId, promptText, {
-        reply_markup: { keyboard: [[translations[state.language].backLabel]], one_time_keyboard: true }
-      });
+      return bot.sendMessage(chatId, promptText);
     }
 
     // Handle free-text birthplace entry
