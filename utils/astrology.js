@@ -79,14 +79,20 @@ async function calculateFullChart({ julianDay, lat, lon }) {
       || (Array.isArray(rawHouseData) ? rawHouseData.slice(1,13) : []);
     console.log('🏠 Extracted houses & ascendant →', { ascendant, houses });
 
-    // 2. Compute planet positions (including North Node and True Lilith)
-    // Determine correct constants for North Node and Lilith
-    const northNodeId = typeof swisseph.SE_MEAN_NODE !== 'undefined'
-      ? swisseph.SE_MEAN_NODE
-      : (typeof swisseph.SE_NNODE !== 'undefined' ? swisseph.SE_NNODE : null);
-    const lilithId = typeof swisseph.SE_TRUE_LILITH !== 'undefined'
-      ? swisseph.SE_TRUE_LILITH
-      : (typeof swisseph.SE_OSCU_APOG !== 'undefined' ? swisseph.SE_OSCU_APOG : null);
+    // 2. Compute planet positions (including True Node and Black Moon Lilith)
+    // Determine correct constants for North Node (true node preferred) and Lilith (osculating apogee preferred)
+    const northNodeId = typeof swisseph.SE_TRUE_NODE !== 'undefined'
+      ? swisseph.SE_TRUE_NODE
+      : (typeof swisseph.SE_NNODE !== 'undefined'
+          ? swisseph.SE_NNODE
+          : (typeof swisseph.SE_MEAN_NODE !== 'undefined'
+              ? swisseph.SE_MEAN_NODE
+              : null));
+    const lilithId = typeof swisseph.SE_OSCU_APOG !== 'undefined'
+      ? swisseph.SE_OSCU_APOG
+      : (typeof swisseph.SE_TRUE_LILITH !== 'undefined'
+          ? swisseph.SE_TRUE_LILITH
+          : null);
 
     const planetConstants = [
       { name: 'Sun',        id: swisseph.SE_SUN },
@@ -99,9 +105,8 @@ async function calculateFullChart({ julianDay, lat, lon }) {
       { name: 'Uranus',     id: swisseph.SE_URANUS },
       { name: 'Neptune',    id: swisseph.SE_NEPTUNE },
       { name: 'Pluto',      id: swisseph.SE_PLUTO },
-      // Only include if valid constant found
       ...(northNodeId ? [{ name: 'North Node', id: northNodeId }] : []),
-      ...(lilithId    ? [{ name: 'Lilith',      id: lilithId }]    : []),
+      ...(lilithId     ? [{ name: 'Lilith',      id: lilithId      }] : []),
     ];
 
     const planetPositions = planetConstants.map(p => {
