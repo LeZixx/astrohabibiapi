@@ -78,25 +78,37 @@ async function calculateFullChart({ julianDay, lat, lon }) {
       || rawHouseData.house
       || (Array.isArray(rawHouseData) ? rawHouseData.slice(1,13) : []);
     console.log('🏠 Extracted houses & ascendant →', { ascendant, houses });
+
     // 2. Compute planet positions (including North Node and True Lilith)
+    // Determine correct constants for North Node and Lilith
+    const northNodeId = typeof swisseph.SE_MEAN_NODE !== 'undefined'
+      ? swisseph.SE_MEAN_NODE
+      : (typeof swisseph.SE_NNODE !== 'undefined' ? swisseph.SE_NNODE : null);
+    const lilithId = typeof swisseph.SE_TRUE_LILITH !== 'undefined'
+      ? swisseph.SE_TRUE_LILITH
+      : (typeof swisseph.SE_OSCU_APOG !== 'undefined' ? swisseph.SE_OSCU_APOG : null);
+
     const planetConstants = [
-      { name: 'Sun',       id: swisseph.SE_SUN },
-      { name: 'Moon',      id: swisseph.SE_MOON },
-      { name: 'Mercury',   id: swisseph.SE_MERCURY },
-      { name: 'Venus',     id: swisseph.SE_VENUS },
-      { name: 'Mars',      id: swisseph.SE_MARS },
-      { name: 'Jupiter',   id: swisseph.SE_JUPITER },
-      { name: 'Saturn',    id: swisseph.SE_SATURN },
-      { name: 'Uranus',    id: swisseph.SE_URANUS },
-      { name: 'Neptune',   id: swisseph.SE_NEPTUNE },
-      { name: 'Pluto',     id: swisseph.SE_PLUTO },
-      { name: 'North Node',id: swisseph.SE_MEAN_NODE },
-      { name: 'Lilith',    id: swisseph.SE_TRUE_LILITH }
+      { name: 'Sun',        id: swisseph.SE_SUN },
+      { name: 'Moon',       id: swisseph.SE_MOON },
+      { name: 'Mercury',    id: swisseph.SE_MERCURY },
+      { name: 'Venus',      id: swisseph.SE_VENUS },
+      { name: 'Mars',       id: swisseph.SE_MARS },
+      { name: 'Jupiter',    id: swisseph.SE_JUPITER },
+      { name: 'Saturn',     id: swisseph.SE_SATURN },
+      { name: 'Uranus',     id: swisseph.SE_URANUS },
+      { name: 'Neptune',    id: swisseph.SE_NEPTUNE },
+      { name: 'Pluto',      id: swisseph.SE_PLUTO },
+      // Only include if valid constant found
+      ...(northNodeId ? [{ name: 'North Node', id: northNodeId }] : []),
+      ...(lilithId    ? [{ name: 'Lilith',      id: lilithId }]    : []),
     ];
+
     const planetPositions = planetConstants.map(p => {
       const lonlat = swisseph.swe_calc_ut(julianDay, p.id, swisseph.SEFLG_SWIEPH);
       return { name: p.name.toUpperCase(), longitude: lonlat.longitude };
     });
+
     return { ascendant, houses, planets: planetPositions };
   } catch (err) {
     console.error('❌ calculateFullChart error →', err);
