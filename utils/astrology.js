@@ -6,6 +6,9 @@ const axios = require('axios');
 const tzlookup = require('tz-lookup');
 
 async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
+  if (!birthTime) {
+    birthTime = '12:00 PM';
+  }
   const geoRes = await axios.get('https://nominatim.openstreetmap.org/search', {
     params: { q: birthPlace, format: 'json', limit: 1 }
   });
