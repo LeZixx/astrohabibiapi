@@ -147,15 +147,28 @@ async function calculateFullChart({ julianDay, lat, lon, hasBirthTime }) {
     }
   }
 
-  // Calculate standard planet positions
+  // Calculate standard planet positions (including retrograde flag)
   const planetPositions = standardPlanets.map(p => {
-    const lonlat = swisseph.swe_calc_ut(julianDay, p.id, swisseph.SEFLG_SWIEPH);
-    return { name: p.name.toUpperCase(), longitude: lonlat.longitude };
+    const result = swisseph.swe_calc_ut(julianDay, p.id, swisseph.SEFLG_SWIEPH);
+    const isRetro = result.speed < 0;
+    return {
+      name: p.name.toUpperCase(),
+      longitude: result.longitude,
+      retrograde: isRetro
+    };
   });
 
   // Add North Node and Lilith if successfully calculated
-  if (northNode) planetPositions.push(northNode);
-  if (lilith) planetPositions.push(lilith);
+  if (northNode) {
+    const nodeCalc = swisseph.swe_calc_ut(julianDay, swisseph.SE_TRUE_NODE, swisseph.SEFLG_SWIEPH);
+    northNode.retrograde = nodeCalc.speed < 0;
+    planetPositions.push(northNode);
+  }
+  if (lilith) {
+    const apoCalc = swisseph.swe_calc_ut(julianDay, swisseph.SE_MEAN_APOG, swisseph.SEFLG_SWIEPH);
+    lilith.retrograde = apoCalc.speed < 0;
+    planetPositions.push(lilith);
+  }
 
   // If no birth time, return only planets
   if (!hasBirthTime) {

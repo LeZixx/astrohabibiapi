@@ -640,7 +640,18 @@ function formatChartSummary(data, language = 'English') {
         : isFr
         ? `${translatedName} en ${pDet.signName}`
         : `${translatedName} in ${pDet.signName}`;
-      lines.push(`  - ${pLabel} ${pDet.degree}°${pDet.minutes}′`);
+      // Determine localized retrograde marker
+      let retroMarker = '';
+      if (p.retrograde) {
+        if (language === 'Arabic') {
+          retroMarker = ' (رجعي)';
+        } else if (language === 'French') {
+          retroMarker = ' (R)';
+        } else {
+          retroMarker = ' (R)';
+        }
+      }
+      lines.push(`  - ${pLabel} ${pDet.degree}°${pDet.minutes}′${retroMarker}`);
     });
   }
 
