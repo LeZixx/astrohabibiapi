@@ -87,9 +87,9 @@ router.post("/", async (req, res) => {
     julianDay,
     lat,
     lon,
-    ascendant,
-    risingSign,
-    houses,
+    ascendant: ascendant ?? null,
+    risingSign: risingSign ?? null,
+    houses: houses ?? null,
     planets: labeledPlanets
   };
 

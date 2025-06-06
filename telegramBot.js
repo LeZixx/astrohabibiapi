@@ -586,18 +586,20 @@ function formatChartSummary(data, language = 'English') {
     : isFr
     ? 'Maisons'
     : 'Houses';
-  lines.push(`• ${housesLabel}:`);
-  data.houses.forEach((h, i) => {
-    // h is a numeric degree for the cusp of house i+1
-    const hDet = degreeToSignDetails(h, language);
-    const houseNumber = i + 1;
-    const houseLabel = isAr
-      ? `البيت ${houseNumber}`
-      : isFr
-      ? `Maison ${houseNumber}`
-      : `House ${houseNumber}`;
-    lines.push(`  - ${houseLabel}: \`${hDet.signName} ${hDet.degree}°${hDet.minutes}′\``);
-  });
+  if (Array.isArray(data.houses)) {
+    lines.push(`• ${housesLabel}:`);
+    data.houses.forEach((h, i) => {
+      // h is a numeric degree for the cusp of house i+1
+      const hDet = degreeToSignDetails(h, language);
+      const houseNumber = i + 1;
+      const houseLabel = isAr
+        ? `البيت ${houseNumber}`
+        : isFr
+        ? `Maison ${houseNumber}`
+        : `House ${houseNumber}`;
+      lines.push(`  - ${houseLabel}: \`${hDet.signName} ${hDet.degree}°${hDet.minutes}′\``);
+    });
+  }
 
   // Planets
   const planetLabel = isAr
@@ -605,17 +607,19 @@ function formatChartSummary(data, language = 'English') {
     : isFr
     ? 'Planètes'
     : 'Planets';
-  lines.push(`• ${planetLabel}:`);
-  data.planets.forEach(p => {
-    // p.longitude is numeric
-    const pDet = degreeToSignDetails(p.longitude, language);
-    const pLabel = isAr
-      ? `${p.name} في ${pDet.signName}`
-      : isFr
-      ? `${p.name} en ${pDet.signName}`
-      : `${p.name} in ${pDet.signName}`;
-    lines.push(`  - ${pLabel} ${pDet.degree}°${pDet.minutes}′`);
-  });
+  if (Array.isArray(data.planets)) {
+    lines.push(`• ${planetLabel}:`);
+    data.planets.forEach(p => {
+      // p.longitude is numeric
+      const pDet = degreeToSignDetails(p.longitude, language);
+      const pLabel = isAr
+        ? `${p.name} في ${pDet.signName}`
+        : isFr
+        ? `${p.name} en ${pDet.signName}`
+        : `${p.name} in ${pDet.signName}`;
+      lines.push(`  - ${pLabel} ${pDet.degree}°${pDet.minutes}′`);
+    });
+  }
 
   return lines.join('\n');
 }
