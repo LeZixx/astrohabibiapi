@@ -65,47 +65,104 @@ async function calculateFullChart({ julianDay, lat, lon, hasBirthTime }) {
     { name: 'Pluto',    id: swisseph.SE_PLUTO },
   ];
 
-  // Get North Node - prefer True Node, fallback to Mean Node
+  // Get North Node - test both True and Mean Node
   let northNode = null;
+  console.log('🔍 Testing North Node calculation methods:');
+  
+  // Try SE_TRUE_NODE first (more accurate for specific dates)
   if (typeof swisseph.SE_TRUE_NODE !== 'undefined') {
     try {
       const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_TRUE_NODE, swisseph.SEFLG_SWIEPH);
-      northNode = { name: 'NORTH NODE', longitude: result.longitude };
-      console.log('✅ Using SE_TRUE_NODE for North Node');
+      console.log(`📍 SE_TRUE_NODE: ${result.longitude}°`);
+      northNode = { name: 'NORTH NODE', longitude: result.longitude, method: 'TRUE_NODE' };
     } catch (e) {
-      console.warn('⚠️ SE_TRUE_NODE failed, trying SE_MEAN_NODE');
+      console.warn('⚠️ SE_TRUE_NODE failed:', e.message);
     }
   }
   
+  // Try SE_MEAN_NODE as fallback
   if (!northNode && typeof swisseph.SE_MEAN_NODE !== 'undefined') {
     try {
       const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_MEAN_NODE, swisseph.SEFLG_SWIEPH);
-      northNode = { name: 'NORTH NODE', longitude: result.longitude };
-      console.log('✅ Using SE_MEAN_NODE for North Node');
+      console.log(`📍 SE_MEAN_NODE: ${result.longitude}°`);
+      northNode = { name: 'NORTH NODE', longitude: result.longitude, method: 'MEAN_NODE' };
     } catch (e) {
-      console.warn('⚠️ SE_MEAN_NODE also failed');
-    }
-  }
-
-  // Get Lilith (Black Moon) - prefer Osculating Apogee, fallback to Mean Apogee
-  let lilith = null;
-  if (typeof swisseph.SE_OSCU_APOG !== 'undefined') {
-    try {
-      const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_OSCU_APOG, swisseph.SEFLG_SWIEPH);
-      lilith = { name: 'LILITH', longitude: result.longitude };
-      console.log('✅ Using SE_OSCU_APOG for Lilith');
-    } catch (e) {
-      console.warn('⚠️ SE_OSCU_APOG failed, trying SE_MEAN_APOG');
+      console.warn('⚠️ SE_MEAN_NODE failed:', e.message);
     }
   }
   
-  if (!lilith && typeof swisseph.SE_MEAN_APOG !== 'undefined') {
+  // Try using numeric constants directly
+  const nodeConstants = [
+    { name: 'SE_TRUE_NODE', value: 11 },
+    { name: 'SE_MEAN_NODE', value: 10 }
+  ];
+  
+  for (const constant of nodeConstants) {
+    if (!northNode && !swisseph[constant.name]) {
+      try {
+        const result = swisseph.swe_calc_ut(julianDay, constant.value, swisseph.SEFLG_SWIEPH);
+        console.log(`📍 ${constant.name} (${constant.value}): ${result.longitude}°`);
+        northNode = { name: 'NORTH NODE', longitude: result.longitude, method: constant.name };
+        break;
+      } catch (e) {
+        console.warn(`⚠️ ${constant.name} (${constant.value}) failed:`, e.message);
+      }
+    }
+  }
+
+  // Get Lilith (Black Moon) - test all available methods
+  let lilith = null;
+  console.log('🔍 Testing all Lilith calculation methods:');
+  
+  // Try SE_INTP_APOG first (interpolated apogee - often most accurate)
+  if (typeof swisseph.SE_INTP_APOG !== 'undefined') {
+    try {
+      const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_INTP_APOG, swisseph.SEFLG_SWIEPH);
+      console.log(`📍 SE_INTP_APOG: ${result.longitude}°`);
+      if (!lilith) lilith = { name: 'LILITH', longitude: result.longitude, method: 'INTP_APOG' };
+    } catch (e) {
+      console.warn('⚠️ SE_INTP_APOG failed:', e.message);
+    }
+  }
+  
+  // Try SE_OSCU_APOG (osculating apogee)
+  if (typeof swisseph.SE_OSCU_APOG !== 'undefined') {
+    try {
+      const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_OSCU_APOG, swisseph.SEFLG_SWIEPH);
+      console.log(`📍 SE_OSCU_APOG: ${result.longitude}°`);
+      if (!lilith) lilith = { name: 'LILITH', longitude: result.longitude, method: 'OSCU_APOG' };
+    } catch (e) {
+      console.warn('⚠️ SE_OSCU_APOG failed:', e.message);
+    }
+  }
+  
+  // Try SE_MEAN_APOG (mean apogee)
+  if (typeof swisseph.SE_MEAN_APOG !== 'undefined') {
     try {
       const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_MEAN_APOG, swisseph.SEFLG_SWIEPH);
-      lilith = { name: 'LILITH', longitude: result.longitude };
-      console.log('✅ Using SE_MEAN_APOG for Lilith');
+      console.log(`📍 SE_MEAN_APOG: ${result.longitude}°`);
+      if (!lilith) lilith = { name: 'LILITH', longitude: result.longitude, method: 'MEAN_APOG' };
     } catch (e) {
-      console.warn('⚠️ SE_MEAN_APOG also failed');
+      console.warn('⚠️ SE_MEAN_APOG failed:', e.message);
+    }
+  }
+  
+  // Try using numeric constants directly if symbolic ones fail
+  const lilithConstants = [
+    { name: 'SE_INTP_APOG', value: 21 },
+    { name: 'SE_OSCU_APOG', value: 13 },
+    { name: 'SE_MEAN_APOG', value: 12 }
+  ];
+  
+  for (const constant of lilithConstants) {
+    if (!swisseph[constant.name]) {
+      try {
+        const result = swisseph.swe_calc_ut(julianDay, constant.value, swisseph.SEFLG_SWIEPH);
+        console.log(`📍 ${constant.name} (${constant.value}): ${result.longitude}°`);
+        if (!lilith) lilith = { name: 'LILITH', longitude: result.longitude, method: constant.name };
+      } catch (e) {
+        console.warn(`⚠️ ${constant.name} (${constant.value}) failed:`, e.message);
+      }
     }
   }
 
