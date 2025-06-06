@@ -70,7 +70,7 @@ router.post("/", async (req, res) => {
     }
 
     // Calculate full chart
-    const fullChart = await calculateFullChart({ julianDay, lat, lon });
+    const fullChart = await calculateFullChart({ julianDay, lat, lon, hasBirthTime: hasExactTime });
     const { ascendant, houses, planets } = fullChart;
 
     // Derive rising sign - only if we have exact time and ascendant
