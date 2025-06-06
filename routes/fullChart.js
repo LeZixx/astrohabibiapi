@@ -62,43 +62,43 @@ router.post("/", async (req, res) => {
 
   const timeKnown = Boolean(birthTime);
 
-  let ascendant = null, houses = null, planets;
+  // Compute full chart (ascendant, houses, planets) regardless of timeKnown
+  let fullChart;
   try {
-    if (timeKnown) {
-      const fullChart = await calculateFullChart({ julianDay, lat, lon });
-      ascendant = fullChart.ascendant;
-      houses = fullChart.houses;
-      planets = fullChart.planets;
-    } else {
-      // compute planets only (houses/ascendant not reliable without birthTime)
-      const fullChart = await calculateFullChart({ julianDay, lat, lon });
-      planets = fullChart.planets;
-    }
+    fullChart = await calculateFullChart({ julianDay, lat, lon });
   } catch (chartErr) {
     console.error("❌ Error computing full chart:", chartErr);
     return res.status(400).json({ error: "Invalid date/time or coordinates; could not compute chart" });
   }
 
-  // derive rising sign only if timeKnown
-  const risingSign = timeKnown ? degreeToSign(ascendant) : null;
-  // label planets; if timeKnown, include house numbers, otherwise house=null
+  // Extract values
+  let { ascendant, houses, planets } = fullChart;
+  const risingSign = degreeToSign(ascendant);
+
+  // If time is unknown, nullify ascendant and houses, but keep planets
+  if (!timeKnown) {
+    ascendant = null;
+    houses = null;
+  }
+
+  // Label planets: always compute sign; only compute house number if houses exist
   const labeledPlanets = planets.map(p => {
     const sign = degreeToSign(p.longitude);
     let houseNumber = null;
-    if (timeKnown && Array.isArray(houses)) {
+    if (houses) {
       const idx = houses.findIndex(cusp => p.longitude < cusp);
       houseNumber = idx >= 0 ? idx + 1 : 12;
     }
     return { ...p, sign, house: houseNumber };
   });
 
-  let response = {
+  const response = {
     julianDay,
     lat,
     lon,
-    ascendant: timeKnown ? ascendant : null,
-    risingSign,
-    houses: timeKnown ? houses : null,
+    ascendant,
+    risingSign: ascendant !== null ? risingSign : null,
+    houses,
     planets: labeledPlanets
   };
 
