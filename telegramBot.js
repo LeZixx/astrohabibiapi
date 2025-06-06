@@ -572,13 +572,15 @@ function formatChartSummary(data, language = 'English') {
   lines.push(title);
 
   // Ascendant
-  const asc = degreeToSignDetails(data.ascendant, language);
-  const ascLabel = isAr
-    ? 'الطالع'
-    : isFr
-    ? 'Ascendant'
-    : 'Ascendant';
-  lines.push(`• ${ascLabel}: \`${asc.signName} ${asc.degree}°${asc.minutes}′\``);
+  if (typeof data.ascendant === 'number') {
+    const asc = degreeToSignDetails(data.ascendant, language);
+    const ascLabel = isAr
+      ? 'الطالع'
+      : isFr
+      ? 'Ascendant'
+      : 'Ascendant';
+    lines.push(`• ${ascLabel}: \`${asc.signName} ${asc.degree}°${asc.minutes}′\``);
+  }
 
   // Houses
   const housesLabel = isAr
