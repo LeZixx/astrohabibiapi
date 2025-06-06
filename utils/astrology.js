@@ -110,59 +110,40 @@ async function calculateFullChart({ julianDay, lat, lon, hasBirthTime }) {
     }
   }
 
-  // Get Lilith (Black Moon) - test all available methods
+  // Get Lilith (Black Moon) - prefer mean apogee
   let lilith = null;
-  console.log('🔍 Testing all Lilith calculation methods:');
-  
-  // Try SE_INTP_APOG first (interpolated apogee - often most accurate)
-  if (typeof swisseph.SE_INTP_APOG !== 'undefined') {
-    try {
-      const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_INTP_APOG, swisseph.SEFLG_SWIEPH);
-      console.log(`📍 SE_INTP_APOG: ${result.longitude}°`);
-      if (!lilith) lilith = { name: 'LILITH', longitude: result.longitude, method: 'INTP_APOG' };
-    } catch (e) {
-      console.warn('⚠️ SE_INTP_APOG failed:', e.message);
-    }
-  }
-  
-  // Try SE_OSCU_APOG (osculating apogee)
-  if (typeof swisseph.SE_OSCU_APOG !== 'undefined') {
-    try {
-      const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_OSCU_APOG, swisseph.SEFLG_SWIEPH);
-      console.log(`📍 SE_OSCU_APOG: ${result.longitude}°`);
-      if (!lilith) lilith = { name: 'LILITH', longitude: result.longitude, method: 'OSCU_APOG' };
-    } catch (e) {
-      console.warn('⚠️ SE_OSCU_APOG failed:', e.message);
-    }
-  }
-  
-  // Try SE_MEAN_APOG (mean apogee)
+  console.log('🔍 Testing Lilith calculation methods:');
+
+  // Try SE_MEAN_APOG first (mean apogee gives published reference)
   if (typeof swisseph.SE_MEAN_APOG !== 'undefined') {
     try {
       const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_MEAN_APOG, swisseph.SEFLG_SWIEPH);
       console.log(`📍 SE_MEAN_APOG: ${result.longitude}°`);
-      if (!lilith) lilith = { name: 'LILITH', longitude: result.longitude, method: 'MEAN_APOG' };
+      lilith = { name: 'LILITH', longitude: result.longitude, method: 'MEAN_APOG' };
     } catch (e) {
       console.warn('⚠️ SE_MEAN_APOG failed:', e.message);
     }
   }
-  
-  // Try using numeric constants directly if symbolic ones fail
-  const lilithConstants = [
-    { name: 'SE_INTP_APOG', value: 21 },
-    { name: 'SE_OSCU_APOG', value: 13 },
-    { name: 'SE_MEAN_APOG', value: 12 }
-  ];
-  
-  for (const constant of lilithConstants) {
-    if (!swisseph[constant.name]) {
-      try {
-        const result = swisseph.swe_calc_ut(julianDay, constant.value, swisseph.SEFLG_SWIEPH);
-        console.log(`📍 ${constant.name} (${constant.value}): ${result.longitude}°`);
-        if (!lilith) lilith = { name: 'LILITH', longitude: result.longitude, method: constant.name };
-      } catch (e) {
-        console.warn(`⚠️ ${constant.name} (${constant.value}) failed:`, e.message);
-      }
+
+  // If mean apogee didn't yield a value, fall back to SE_INTP_APOG
+  if (!lilith && typeof swisseph.SE_INTP_APOG !== 'undefined') {
+    try {
+      const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_INTP_APOG, swisseph.SEFLG_SWIEPH);
+      console.log(`📍 SE_INTP_APOG: ${result.longitude}°`);
+      lilith = { name: 'LILITH', longitude: result.longitude, method: 'INTP_APOG' };
+    } catch (e) {
+      console.warn('⚠️ SE_INTP_APOG failed:', e.message);
+    }
+  }
+
+  // If still no Lilith, try SE_OSCU_APOG
+  if (!lilith && typeof swisseph.SE_OSCU_APOG !== 'undefined') {
+    try {
+      const result = swisseph.swe_calc_ut(julianDay, swisseph.SE_OSCU_APOG, swisseph.SEFLG_SWIEPH);
+      console.log(`📍 SE_OSCU_APOG: ${result.longitude}°`);
+      lilith = { name: 'LILITH', longitude: result.longitude, method: 'OSCU_APOG' };
+    } catch (e) {
+      console.warn('⚠️ SE_OSCU_APOG failed:', e.message);
     }
   }
 
