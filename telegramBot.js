@@ -224,7 +224,7 @@ bot.on('message', async (msg) => {
         state.birthDate = `${state.birthDay} ${monthName} ${state.birthYear}`;
         state.step = 'birth-place-text';
         return bot.sendMessage(chatId, translations[state.language].placePrompt, {
-          reply_markup: { keyboard: [[translations[state.language].backLabel]], one_time_keyboard: true }
+          reply_markup: { remove_keyboard: true }
         });
       }
     }
@@ -320,13 +320,12 @@ bot.on('message', async (msg) => {
       for (let i = 0; i < years.length; i += 3) {
         yearRows.push(years.slice(i, i + 3));
       }
-      // Add back button row before sending the year prompt
       yearRows.push([translations[state.language].backLabel]);
       return bot.sendMessage(chatId, translations[state.language].yearPrompt, {
         reply_markup: {
           keyboard: yearRows,
-          one_time_keyboard: true,
-          resize_keyboard: true
+          resize_keyboard: true,
+          one_time_keyboard: true
         }
       });
     }
