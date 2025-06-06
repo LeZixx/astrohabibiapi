@@ -563,6 +563,27 @@ function formatChartSummary(data, language = 'English') {
   const isFr = language === 'French';
   const lines = [];
 
+  const planetTranslations = {
+    English: {
+      SUN: 'SUN', MOON: 'MOON', MERCURY: 'MERCURY', VENUS: 'VENUS',
+      MARS: 'MARS', JUPITER: 'JUPITER', SATURN: 'SATURN',
+      URANUS: 'URANUS', NEPTUNE: 'NEPTUNE', PLUTO: 'PLUTO',
+      'NORTH NODE': 'NORTH NODE', LILITH: 'LILTH'
+    },
+    Arabic: {
+      SUN: 'الشمس', MOON: 'القمر', MERCURY: 'عطارد', VENUS: 'الزهرة',
+      MARS: 'المريخ', JUPITER: 'المشتري', SATURN: 'زحل',
+      URANUS: 'أورانوس', NEPTUNE: 'نبتون', PLUTO: 'بلوتو',
+      'NORTH NODE': 'عقدة الشمال', LILITH: 'ليليث'
+    },
+    French: {
+      SUN: 'SOLEIL', MOON: 'LUNE', MERCURY: 'MERCURE', VENUS: 'VENUS',
+      MARS: 'MARS', JUPITER: 'JUPITER', SATURN: 'SATURNE',
+      URANUS: 'URANUS', NEPTUNE: 'NEPTUNE', PLUTO: 'PLUTON',
+      'NORTH NODE': 'NŒUD NORD', LILITH: 'LILITH'
+    }
+  };
+
   const title = isAr
     ? '📜 مخططك الفلكي'
     : isFr
@@ -613,11 +634,12 @@ function formatChartSummary(data, language = 'English') {
     data.planets.forEach(p => {
       // p.longitude is numeric
       const pDet = degreeToSignDetails(p.longitude, language);
+      const translatedName = planetTranslations[language][p.name] || p.name;
       const pLabel = isAr
-        ? `${p.name} في ${pDet.signName}`
+        ? `${translatedName} في ${pDet.signName}`
         : isFr
-        ? `${p.name} en ${pDet.signName}`
-        : `${p.name} in ${pDet.signName}`;
+        ? `${translatedName} en ${pDet.signName}`
+        : `${translatedName} in ${pDet.signName}`;
       lines.push(`  - ${pLabel} ${pDet.degree}°${pDet.minutes}′`);
     });
   }
