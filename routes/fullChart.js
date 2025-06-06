@@ -74,8 +74,12 @@ router.post("/", async (req, res) => {
   // label planets with sign & house number
   const labeledPlanets = planets.map(p => {
     const sign = degreeToSign(p.longitude);
-    // find house: first cusp greater than longitude, fallback to 12
-    const houseNumber = houses.findIndex(cusp => p.longitude < cusp) + 1 || 12;
+    // determine house: if houses array is undefined (no birthTime), set house to null
+    let houseNumber = null;
+    if (Array.isArray(houses)) {
+      const idx = houses.findIndex(cusp => p.longitude < cusp);
+      houseNumber = idx >= 0 ? idx + 1 : 12;
+    }
     return { ...p, sign, house: houseNumber };
   });
 
