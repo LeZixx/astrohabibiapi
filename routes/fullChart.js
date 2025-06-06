@@ -20,7 +20,7 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "Missing userId parameter" });
   }
   // Require birthDate; birthTime can be null but then we need a birthPlace (to geocode) or coordinates
-  if (!birthDate || ((birthTime == null || birthTime === '') && (!birthPlace && (latitude == null || longitude == null)))) {
+  if (!birthDate || ((!birthTime) && !birthPlace && (latitude == null || longitude == null))) {
     return res.status(400).json({ error: "Missing required parameters" });
   }
 
@@ -60,23 +60,32 @@ router.post("/", async (req, res) => {
     lon = result.lon;
   }
 
-  let fullChart;
+  const timeKnown = Boolean(birthTime);
+
+  let ascendant = null, houses = null, planets;
   try {
-    fullChart = await calculateFullChart({ julianDay, lat, lon });
+    if (timeKnown) {
+      const fullChart = await calculateFullChart({ julianDay, lat, lon });
+      ascendant = fullChart.ascendant;
+      houses = fullChart.houses;
+      planets = fullChart.planets;
+    } else {
+      // compute planets only (houses/ascendant not reliable without birthTime)
+      const fullChart = await calculateFullChart({ julianDay, lat, lon });
+      planets = fullChart.planets;
+    }
   } catch (chartErr) {
     console.error("❌ Error computing full chart:", chartErr);
     return res.status(400).json({ error: "Invalid date/time or coordinates; could not compute chart" });
   }
-  const { ascendant, houses, planets } = fullChart;
 
-  // derive rising sign
-  const risingSign = degreeToSign(ascendant);
-  // label planets with sign & house number
+  // derive rising sign only if timeKnown
+  const risingSign = timeKnown ? degreeToSign(ascendant) : null;
+  // label planets; if timeKnown, include house numbers, otherwise house=null
   const labeledPlanets = planets.map(p => {
     const sign = degreeToSign(p.longitude);
-    // determine house: if houses array is undefined (no birthTime), set house to null
     let houseNumber = null;
-    if (Array.isArray(houses)) {
+    if (timeKnown && Array.isArray(houses)) {
       const idx = houses.findIndex(cusp => p.longitude < cusp);
       houseNumber = idx >= 0 ? idx + 1 : 12;
     }
@@ -87,9 +96,9 @@ router.post("/", async (req, res) => {
     julianDay,
     lat,
     lon,
-    ascendant: ascendant ?? null,
-    risingSign: risingSign ?? null,
-    houses: houses ?? null,
+    ascendant: timeKnown ? ascendant : null,
+    risingSign,
+    houses: timeKnown ? houses : null,
     planets: labeledPlanets
   };
 
