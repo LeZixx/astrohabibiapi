@@ -1,21 +1,45 @@
-// routes/interpret.js
 const express = require('express');
 const router = express.Router();
-console.log('🎯 [routes/interpret] route file loaded');
-const { interpretChart } = require('../utils/interpreter');
+const admin = require('firebase-admin');
+const { getLiveTransits } = require('../utils/transitCalculator');
+const { interpretChartQuery } = require('../utils/interpreter');
 
 router.post('/', async (req, res) => {
-  console.log('🎯 [routes/interpret] POST /interpret received with body:', req.body);
-  const { chartData, dialect } = req.body;
-  if (!chartData || !dialect) {
-    return res.status(400).json({ error: 'Missing chartData or dialect' });
-  }
   try {
-    const interpretation = await interpretChart({ chartData, dialect });
-    return res.json({ interpretation });
+    const { userId, question, dialect } = req.body;
+    if (!userId || !question) {
+      return res.status(400).json({ error: 'Request must include userId and question.' });
+    }
+
+    // 1. Fetch stored natal chart from Firestore
+    const doc = await admin.firestore().collection('charts').doc(userId).get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Chart not found for this user.' });
+    }
+    const chartData = doc.data();
+
+    // 2. Compute all live transits for this chart
+    const allTransits = getLiveTransits(chartData);
+
+    // 3. Filter to only the transits relevant to the user's question
+    const lowerQuestion = question.toLowerCase();
+    let relevantTransits = allTransits.filter(t =>
+      lowerQuestion.includes(t.planet.toLowerCase()) ||
+      lowerQuestion.includes(t.with.toLowerCase())
+    );
+    // If no specific transits matched the question keywords, provide all transits for casual queries
+    if (relevantTransits.length === 0) {
+      relevantTransits = allTransits;
+    }
+
+    // 4. Interpret with the LLM, passing natal chart plus relevant transits
+    const extendedChart = { ...chartData, transits: relevantTransits };
+    const answer = await interpretChartQuery(extendedChart, question, dialect);
+
+    return res.json({ answer });
   } catch (err) {
-    console.error('Error in /interpret:', err);
-    return res.status(500).json({ error: 'Interpretation failed' });
+    console.error('Error interpreting chart query:', err);
+    return res.status(500).json({ error: err.message || 'Failed to interpret chart query.' });
   }
 });
 

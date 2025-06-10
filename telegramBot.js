@@ -670,59 +670,23 @@ bot.on('message', async (msg) => {
   const text = msg.text.trim();
   const state = userState[chatId];
 
-  // If user is not done with the birth-data flow, ignore here
+  // Only proceed once user has completed birth-chart flow
   if (!state || state.step !== 'done') return;
 
-  // Prefer in-memory lastChart; otherwise fetch from Firestore
-  let chartData = state.lastChart;
-  if (!chartData) {
-    const platformKey = `telegram-${chatId}`;
-    try {
-      const chartRecord = await getLatestChart(platformKey);
-      if (chartRecord && chartRecord.rawChartData) {
-        chartData = chartRecord.rawChartData;
-      }
-    } catch (fsErr) {
-      console.error('Firestore error fetching chart:', fsErr);
-    }
-  }
-  if (!chartData) {
-    return bot.sendMessage(
-      chatId,
-      '🙏 يرجى أولاً إنشاء خريطتك الفلكية عبر /start ثم اتّباع التعليمات.'
-    );
-  }
+  const platformKey = `telegram-${chatId}`;
+  const payload = {
+    userId: platformKey,
+    question: text,
+    dialect: state.dialect || 'English'
+  };
 
-  // Treat any incoming text as a question about the chart
   try {
     await bot.sendChatAction(chatId, 'typing');
-    const payload = {
-      chartData,
-      dialect:  state?.dialect || 'Lebanese',
-      question: text
-    };
     const resp = await axios.post(`${SERVICE_URL}/interpret`, payload);
-    const interp = resp.data.interpretation || '';
-    const maxLength = 4000;
-    let start = 0;
-    while (start < interp.length) {
-      let end = start + maxLength;
-      if (end < interp.length) {
-        let slice = interp.slice(start, end);
-        const lastNewline = slice.lastIndexOf('\n');
-        const lastSpace = slice.lastIndexOf(' ');
-        const splitPos = Math.max(lastNewline, lastSpace);
-        if (splitPos > -1) {
-          end = start + splitPos;
-        }
-      }
-      const chunk = interp.slice(start, end);
-      await bot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
-      start = end;
-    }
-    return;
+    const answer = resp.data.answer || 'Sorry, no answer was returned.';
+    return bot.sendMessage(chatId, answer);
   } catch (err) {
     console.error('Interpretation error:', err);
-    return bot.sendMessage(chatId, '❌ حدث خطأ أثناء التفسير. حاول مرة ثانية.');
+    return bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
   }
 });

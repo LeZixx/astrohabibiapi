@@ -46,10 +46,12 @@ app.use((req, res, next) => {
 
 const fullChartRoute = require("./routes/fullChart");
 const natalRoute = require('./routes/natalChart');
+const transitsRouter = require('./routes/transits');
 
 app.use("/full-chart", fullChartRoute);
 app.use('/natal-chart', natalRoute);
 app.use('/interpret', interpretRoute);
+app.use('/transits', transitsRouter);
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => console.log(`✅ Time API is live on port ${PORT}`));

@@ -149,4 +149,35 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   }
 }
 
-module.exports = { interpretChart };
+
+/**
+ * Interpret live transits into readable sentences in Arabic, English, or French.
+ * @param {Array} transits - Array of transit objects from getLiveTransits
+ * @param {Object} chartData - Original natal chart data
+ * @param {string} [dialect] - Language/dialect for output (optional)
+ * @returns {string} Combined interpretation text
+ */
+function interpretTransits(transits, chartData, dialect = chartData.dialect || 'Arabic') {
+  const lang = (dialect || '').toLowerCase();
+  return transits.map(t => {
+    let direction, sentence;
+    switch (lang) {
+      case 'english':
+      case 'en':
+        direction = t.isRetrograde ? 'retrograde' : 'direct';
+        sentence = `${t.planet} ${t.aspect} ${t.with} with an orb of ${t.orb}°, ${direction}.`;
+        break;
+      case 'french':
+      case 'fr':
+        direction = t.isRetrograde ? 'rétrograde' : 'directe';
+        sentence = `${t.planet} ${t.aspect} ${t.with} avec un écart de ${t.orb}°, ${direction}.`;
+        break;
+      default:
+        direction = t.isRetrograde ? 'تراجعي' : 'متقدم';
+        sentence = `${t.planet} ${t.aspect} ${t.with} بفارق ${t.orb}°، حركة ${direction}.`;
+    }
+    return sentence;
+  }).join('\n');
+}
+
+module.exports = { interpretChart, interpretTransits };
