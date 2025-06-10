@@ -148,7 +148,6 @@ async function calculateFullChart({ julianDay, lat, lon, hasBirthTime }) {
   }
 
   // Calculate standard planet positions (including retrograde flag)
-  // Calculate standard planet positions (including retrograde flag)
   const planetPositions = standardPlanets.map(p => {
     const result = swisseph.swe_calc_ut(julianDay, p.id, swisseph.SEFLG_SWIEPH);
     const longitude = result[0];
