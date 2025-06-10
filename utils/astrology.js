@@ -156,6 +156,7 @@ async function calculateFullChart({ julianDay, lat, lon, hasBirthTime }) {
     return {
       name: p.name.toUpperCase(),
       longitude,
+      speed,
       retrograde: isRetro
     };
   });
