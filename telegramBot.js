@@ -516,6 +516,8 @@ bot.on('message', async (msg) => {
       );
       // Save in-memory for follow-ups
       state.lastChart = chartRes.data;
+      // Persist natal chart in Firestore for interpret endpoint
+      await admin.firestore().collection('charts').doc(platformKey).set(chartRes.data);
 
       await bot.sendChatAction(chatId, 'typing');
       try {
