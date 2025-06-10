@@ -520,10 +520,11 @@ bot.on('message', async (msg) => {
       await bot.sendChatAction(chatId, 'typing');
       try {
         const interpResp = await axios.post(`${SERVICE_URL}/interpret`, {
-          chartData: chartRes.data,
-          dialect:   state.language === 'Arabic' ? 'MSA' : state.language
+          userId: platformKey,
+          question: 'Please provide a spiritual interpretation of my natal chart.',
+          dialect: state.language === 'Arabic' ? 'MSA' : state.language
         });
-        const fullText = interpResp.data.interpretation || '';
+        const fullText = interpResp.data.answer || '';
         let idx = 0, maxLen = 4000;
         while (idx < fullText.length) {
           let endIdx = Math.min(idx + maxLen, fullText.length);
