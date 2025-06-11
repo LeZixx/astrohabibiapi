@@ -25,11 +25,10 @@ router.post('/', async (req, res) => {
 
     // 3. Filter to only the transits relevant to the user's question
     const lowerQuestion = question.toLowerCase();
+    // Match transits by planet name in question
     let relevantTransits = allTransits.filter(t =>
-      lowerQuestion.includes(t.planet.toLowerCase()) ||
-      lowerQuestion.includes(t.with.toLowerCase())
+      lowerQuestion.includes(t.name.toLowerCase())
     );
-    // If no specific transits matched the question keywords, provide all transits for casual queries
     if (relevantTransits.length === 0) {
       relevantTransits = allTransits;
     }
