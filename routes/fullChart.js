@@ -5,6 +5,8 @@ const swisseph = require('swisseph');
 const { DateTime } = require('luxon');
 const tzlookup = require('tz-lookup');
 
+const admin = require('firebase-admin');
+
 // helper to convert a degree to a zodiac sign name
 function degreeToSign(deg) {
   const signs = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
@@ -109,9 +111,9 @@ router.post("/", async (req, res) => {
       }
     }
 
-    // Save this chart data to Firestore under the user's ID
+    // Persist natal chart in Firestore for interpret endpoint
     try {
-      await saveChart(userId, response);
+      await admin.firestore().collection('charts').doc(userId).set(response);
     } catch (fsErr) {
       console.warn("⚠️ Failed to save chart to Firestore:", fsErr);
     }
