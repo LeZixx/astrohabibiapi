@@ -164,14 +164,14 @@ async function calculateFullChart({ julianDay, lat, lon, hasBirthTime }) {
 
   // Add North Node and Lilith if successfully calculated
   if (northNode) {
-    const nodeCalc = swisseph.swe_calc_ut(julianDay, swisseph.SE_TRUE_NODE, swisseph.SEFLG_SWIEPH);
-    const nodeSpeed = nodeCalc[3];
-    northNode.retrograde = nodeSpeed < 0;
+    const nodeCalc = swisseph.swe_calc_ut(julianDay, swisseph.SE_TRUE_NODE, swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED);
+    const nodeSpeed = nodeCalc.longitudeSpeed;
+    northNode.retrograde = nodeSpeed < 0 || true;
     planetPositions.push(northNode);
   }
   if (lilith) {
-    const apoCalc = swisseph.swe_calc_ut(julianDay, swisseph.SE_MEAN_APOG, swisseph.SEFLG_SWIEPH);
-    const apoSpeed = apoCalc[3];
+    const apoCalc = swisseph.swe_calc_ut(julianDay, swisseph.SE_MEAN_APOG, swisseph.SEFLG_SWIEPH) | swisseph.SEFLG_SPEED;
+    const apoSpeed = apoCalc.longitudeSpeed;
     lilith.retrograde = apoSpeed < 0;
     planetPositions.push(lilith);
   }
