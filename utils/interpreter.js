@@ -1,9 +1,7 @@
 const axios = require('axios');
 console.log('🎯 [utils/interpreter] module loaded');
 
-
-// Replace with your actual Sonar API endpoint and key
-const SONAR_ENDPOINT = 'https://api.perplexity.ai/chat/completions';
+const SONAR_ENDPOINT = process.env.SONAR_ENDPOINT || 'https://api.perplexity.ai/chat/completions';
 const SONAR_API_KEY = process.env.SONAR_API_KEY;
 
 const ARABIC_SIGNS = ['الحمل','الثور','الجوزاء','السرطان','الأسد','العذراء','الميزان','العقرب','القوس','الجدي','الدلو','الحوت'];
@@ -180,4 +178,36 @@ function interpretTransits(transits, chartData, dialect = chartData.dialect || '
   }).join('\n');
 }
 
-module.exports = { interpretChart, interpretTransits };
+/**
+ * Interpret custom astrology questions using an LLM.
+ * @param {Object} chartData - Natal chart and optional transits
+ * @param {string} question - User’s free-form question
+ * @param {string} [dialect] - Language/dialect for response
+ * @returns {Promise<string>} LLM-generated answer
+ */
+async function interpretChartQuery(chartData, question, dialect = chartData.dialect || 'English') {
+  if (!SONAR_API_KEY) {
+    throw new Error('SONAR_API_KEY is not set; please set the env var before interpreting.');
+  }
+  const langLabel = dialect.charAt(0).toUpperCase() + dialect.slice(1);
+  const systemMsg = {
+    role: 'system',
+    content: `You are a world-class expert astrologer. Answer the user’s question in a ${langLabel}-appropriate style, referencing their natal chart and any relevant current transits.`
+  };
+  const userMsg = {
+    role: 'user',
+    content: `Question: ${question}\n\nChart Data:\n${JSON.stringify(chartData)}`
+  };
+  const response = await axios.post(SONAR_ENDPOINT, {
+    model: 'llama-3.1-sonar-large-128k-online',
+    messages: [systemMsg, userMsg]
+  }, {
+    headers: {
+      'Authorization': `Bearer ${SONAR_API_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  return response.data?.choices?.[0]?.message?.content || 'No interpretation returned.';
+}
+
+module.exports = { interpretChart, interpretTransits, interpretChartQuery };
