@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const admin = require('firebase-admin');
 const { getLiveTransits } = require('../utils/transitCalculator');
-const { interpretChartQuery } = require('../utils/interpreter');
+const interpreter = require('../utils/interpreter');
 
 console.log('🔍 interpretChartQuery import:', require('../utils/interpreter'));
 console.log('🎯 [routes/interpret] POST /interpret route loaded');
@@ -40,7 +40,7 @@ router.post('/', async (req, res) => {
 
     // 4. Interpret with the LLM, passing natal chart plus relevant transits
     const extendedChart = { ...chartData, transits: relevantTransits };
-    const answer = await interpretChartQuery(extendedChart, question, dialect);
+    const answer = await interpreter.interpretChartQuery(extendedChart, question, dialect);
 
     return res.json({ answer });
   } catch (err) {
