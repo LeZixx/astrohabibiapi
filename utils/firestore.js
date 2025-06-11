@@ -1,72 +1,62 @@
-// File: utils/firestore.js
-
+const express = require('express');
 const admin = require('firebase-admin');
-const db = admin.firestore();
+const router = express.Router();
+const { getLatestChart } = require('../utils/firestore');
+const { getLiveTransits } = require('../utils/transitCalculator');
+const interpreter = require('../utils/interpreter');
 
-/**
- * Save a new chart document under /users/{userId}/charts/{autoId}
- * @param {string} userId            e.g. "telegram_123456789"
- * @param {object} chartData         The object you want to persist
- */
-async function saveChart(userId, chartData) {
-  const chartRef = db
-    .collection('users')
-    .doc(userId)
-    .collection('charts')
-    .doc(); // auto‐generated ID
-  await chartRef.set({
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    rawChartData: chartData,
+router.post('/interpret', async (req, res) => {
+  const { userId, question } = req.body;
+
+  if (!userId || !question) {
+    return res.status(400).json({ error: 'Missing userId or question' });
+  }
+
+  // Fetch the latest natal chart for the user
+  const chartData = await getLatestChart(userId);
+  if (!chartData) {
+    return res.status(404).json({ error: 'No natal chart found for user' });
+  }
+
+  // Compute relevant transits (fallback logic)
+  const relevantTransits = await computeRelevantTransits(chartData.rawChartData);
+
+  // Persist transit chart in Firestore for later reference
+  try {
+    await admin.firestore()
+      .collection('users')
+      .doc(userId)
+      .collection('transits')
+      .add({
+        transits: relevantTransits,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+  } catch (fsErr) {
+    console.warn('⚠️ Failed to save transit chart to Firestore:', fsErr);
+  }
+
+  // Generate an answer based on question and transit chart
+  const answer = await generateAnswer(
+    question,
+    relevantTransits,
+    chartData.rawChartData,
+    chartData.dialect || 'English'
+  );
+
+  return res.json({
+    answer,
+    natalChart: chartData,
+    transitChart: relevantTransits
   });
-  return chartRef.id;
+});
+
+async function computeRelevantTransits(natalChartData) {
+  return await getLiveTransits(natalChartData);
 }
 
-/**
- * Fetch the most recent chart for a given userId
- * @param {string} userId
- * @returns { Promise<{ chartId: string, rawChartData: object, createdAt: Timestamp } | null> }
- */
-async function getLatestChart(userId) {
-  const snapshot = await db
-    .collection('users')
-    .doc(userId)
-    .collection('charts')
-    .orderBy('createdAt', 'desc')
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) return null;
-
-  const doc = snapshot.docs[0];
-  return {
-    chartId: doc.id,
-    rawChartData: doc.data().rawChartData,
-    createdAt: doc.data().createdAt,
-  };
+async function generateAnswer(question, transits, natalChartData, dialect) {
+  const extendedChart = { ...natalChartData, transits };
+  return await interpreter.interpretChartQuery(extendedChart, question, dialect);
 }
 
-/**
- * Log a follow-up interaction (question or response) under /users/{userId}/logs/{autoId}
- * @param {string} userId
- * @param {'question'|'response'} type
- * @param {string} content
- */
-async function logInteraction(userId, type, content) {
-  const logRef = db
-    .collection('users')
-    .doc(userId)
-    .collection('logs')
-    .doc();
-  await logRef.set({
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    type,
-    content,
-  });
-  return logRef.id;
-}
-
-module.exports = {
-  saveChart,
-  getLatestChart,
-  logInteraction,
-};
+module.exports = router;

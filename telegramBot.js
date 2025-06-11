@@ -56,7 +56,8 @@ const translations = {
     calculating:   '🔮 يتم الآن حساب خريطتك الفلكية والقراءة الروحية، يرجى الانتظار...',
     interpretationIntro: '🔮 دعني أضع لك قراءة روحية مختصرة حسب موقع الكواكب والأبراج...',
     backLabel: '⬅️ رجوع',
-    unknownTimeLabel: 'غير معروف'
+    unknownTimeLabel: 'غير معروف',
+    confirmPlacePrompt: '📌 اختر أقرب تطابق لبلدتك:',
   },
   English: {
     dialectPrompt:     '',
@@ -69,7 +70,8 @@ const translations = {
     calculating:       '🔮 Calculating your full chart and interpretation, please wait...',
     interpretationIntro:'🔮 Here’s a spiritual reading based on your planetary positions...',
     backLabel: '⬅️ Back',
-    unknownTimeLabel: 'Unknown'
+    unknownTimeLabel: 'Unknown',
+    confirmPlacePrompt: '📌 Please choose the best match for your birthplace:',
   },
   French: {
     dialectPrompt: '',
@@ -82,7 +84,8 @@ const translations = {
     calculating: '🔮 Calcul de votre carte du ciel et de l\'interprétation spirituelle en cours...',
     interpretationIntro: '🔮 Voici une lecture spirituelle basée sur vos positions planétaires...',
     backLabel: '⬅️ Retour',
-    unknownTimeLabel: 'Inconnu'
+    unknownTimeLabel: 'Inconnu',
+    confirmPlacePrompt: '📌 Choisissez le lieu correspondant :',
   }
 };
 
@@ -449,11 +452,7 @@ bot.on('message', async (msg) => {
       const keyboardRows = geoResults.map(place => [{ text: place.display_name }]);
       return bot.sendMessage(
         chatId,
-        state.language === 'Arabic'
-          ? '📌 اختر أقرب تطابق لبلدتك:'
-          : state.language === 'French'
-            ? '📌 Choisissez le lieu correspondant :'
-            : '📌 Please choose the best match for your birthplace:',
+        translations[state.language].confirmPlacePrompt,
         {
           reply_markup: {
             keyboard: keyboardRows,
@@ -685,7 +684,11 @@ bot.on('message', async (msg) => {
   try {
     await bot.sendChatAction(chatId, 'typing');
     const resp = await axios.post(`${SERVICE_URL}/interpret`, payload);
-    const answer = resp.data.answer || 'Sorry, no answer was returned.';
+    const { answer, natalChart, transitChart } = resp.data;
+    // For testing: print the transit chart JSON
+    await bot.sendMessage(chatId, `📊 Transit Chart:\n\`\`\`json\n${JSON.stringify(transitChart, null, 2)}\n\`\`\``, { parse_mode: 'Markdown' });
+    // You can also print the natal chart if desired:
+    // await bot.sendMessage(chatId, `📊 Natal Chart:\n\`\`\`json\n${JSON.stringify(natalChart, null, 2)}\n\`\`\``, { parse_mode: 'Markdown' });
     return bot.sendMessage(chatId, answer);
   } catch (err) {
     console.error('Interpretation error:', err);
