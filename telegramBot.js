@@ -96,6 +96,7 @@ if (!SERVICE_URL) {
   console.error('❌ SERVICE_URL is not set in environment');
   process.exit(1);
 }
+console.log('🔑 Bot SERVICE_URL=', SERVICE_URL);
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 // Simple state storage (in-memory; replace with DB for production)

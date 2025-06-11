@@ -14,6 +14,7 @@ try {
 }
 console.log('🔑 SONAR_API_KEY=', process.env.SONAR_API_KEY);
 console.log('🔑 TELEGRAM_BOT_TOKEN=', process.env.TELEGRAM_BOT_TOKEN);
+console.log('🔑 SERVICE_URL=', process.env.SERVICE_URL);
 const interpretRoute = require('./routes/interpret');
 const express = require("express");
 const { DateTime } = require("luxon");
