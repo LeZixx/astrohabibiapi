@@ -4,6 +4,7 @@ const admin = require('firebase-admin');
 const { getLiveTransits } = require('../utils/transitCalculator');
 const { interpretChartQuery } = require('../utils/interpreter');
 
+console.log('🔍 interpretChartQuery import:', require('../utils/interpreter'));
 console.log('🎯 [routes/interpret] POST /interpret route loaded');
 router.post('/', async (req, res) => {
   try {
