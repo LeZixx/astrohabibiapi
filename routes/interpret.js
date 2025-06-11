@@ -21,11 +21,7 @@ router.post('/', async (req, res) => {
     const chartData = doc.data();
 
     // 2. Compute all live transits for this chart
-    let allTransits = getLiveTransits(chartData);
-    if (!Array.isArray(allTransits)) {
-      console.warn('⚠️ getLiveTransits did not return an array:', allTransits);
-      allTransits = [];
-    }
+    let allTransits = await getLiveTransits(chartData);
 
     // 3. Filter to only the transits relevant to the user's question
     const lowerQuestion = question.toLowerCase();
