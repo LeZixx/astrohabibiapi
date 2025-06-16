@@ -18,7 +18,8 @@ router.post('/', async (req, res) => {
     if (!latest) {
       return res.status(404).json({ error: 'Chart not found for this user.' });
     }
-    const natalChart = latest;
+    // Extract the stored raw chart data (fallback if no rawChartData wrapper)
+    const natalChart = latest.rawChartData || latest;
 
     // 2. Compute all live transits for this chart
     const transitChart = await getLiveTransits(natalChart);
