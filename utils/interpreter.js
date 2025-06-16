@@ -5,6 +5,8 @@ const SONAR_ENDPOINT = process.env.SONAR_ENDPOINT || 'https://api.perplexity.ai/
 const SONAR_API_KEY = process.env.SONAR_API_KEY;
 
 const ARABIC_SIGNS = ['الحمل','الثور','الجوزاء','السرطان','الأسد','العذراء','الميزان','العقرب','القوس','الجدي','الدلو','الحوت'];
+const ENGLISH_SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
+const FRENCH_SIGNS = ['Bélier', 'Taureau', 'Gémeaux', 'Cancer', 'Lion', 'Vierge', 'Balance', 'Scorpion', 'Sagittaire', 'Capricorne', 'Verseau', 'Poissons'];
 
 function signDetails(lon) {
   const norm = ((lon % 360) + 360) % 360;
@@ -12,25 +14,26 @@ function signDetails(lon) {
   const degree = Math.floor(norm % 30);
   const minutes = Math.floor(((norm % 30) - degree) * 60);
   return {
+    idx,
     signAr: ARABIC_SIGNS[idx] || 'unknown',
     degree,
     minutes
   };
 }
 
-// function findHouse(longitude, houses) {
-//   for (let i = 0; i < houses.length; i++) {
-//     const start = houses[i];
-//     const end = houses[(i + 1) % houses.length];
-//     if (start < end) {
-//       if (longitude >= start && longitude < end) return i + 1;
-//     } else {
-//       // wrap around 360°
-//       if (longitude >= start || longitude < end) return i + 1;
-//     }
-//   }
-//   return undefined;
-// }
+function findHouse(longitude, houses) {
+  for (let i = 0; i < houses.length; i++) {
+    const start = houses[i];
+    const end = houses[(i + 1) % houses.length];
+    if (start < end) {
+      if (longitude >= start && longitude < end) return i + 1;
+    } else {
+      // wrap around 360°
+      if (longitude >= start || longitude < end) return i + 1;
+    }
+  }
+  return undefined;
+}
 
 function computePlanetPositions(planets) {
   return planets.map(p => {
@@ -78,6 +81,16 @@ function findMajorAspects(planets) {
 
 const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' }) => {
   console.log('🎯 [utils/interpreter] interpretChart called with dialect:', dialect, 'and chartData keys:', Object.keys(chartData || {}));
+  const lang = (dialect || '').toLowerCase();
+  // choose labels and sign array based on language
+  let L;
+  if (lang.startsWith('en')) {
+    L = { ascLabel: 'Ascendant', housesLabel: 'Houses:', housePrefix: '  - House', planetsLabel: 'Planets:', aspectsNone: 'No major aspects.' };
+  } else if (lang.startsWith('fr')) {
+    L = { ascLabel: 'Ascendant', housesLabel: 'Maisons:', housePrefix: '  - Maison', planetsLabel: 'Planètes:', aspectsNone: 'Pas d’aspects majeurs.' };
+  } else {
+    L = { ascLabel: 'الطالع', housesLabel: 'أوج البيوت:', housePrefix: '  - البيت', planetsLabel: 'الكواكب:', aspectsNone: 'لا توجد تأثيرات كبرى.' };
+  }
   if (!SONAR_API_KEY) {
     throw new Error('SONAR_API_KEY is not set; please set the env var before interpreting.');
   }
@@ -86,37 +99,56 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   }
 
   const planetsWithPos = computePlanetPositions(chartData.planets);
+  const planetsWithHouses = planetsWithPos.map(p => ({
+    ...p,
+    house: findHouse(p.longitude, chartData.houses)
+  }));
 
   let summaryPrompt;
   if (chartData.houses && chartData.ascendant != null) {
     // Ascendant
-    const asc = signDetails(chartData.ascendant);
-    const ascStr = `${asc.degree}°${asc.minutes}′ ${asc.signAr}`;
+    const ascDet = signDetails(chartData.ascendant);
+    const ascSign = lang.startsWith('en')
+      ? ENGLISH_SIGNS[ascDet.idx]
+      : lang.startsWith('fr')
+      ? FRENCH_SIGNS[ascDet.idx]
+      : ascDet.signAr;
+    const ascStr = `${ascDet.degree}°${ascDet.minutes}′ ${ascSign}`;
 
     // Houses
     const housesLines = chartData.houses.map((h, i) => {
       const d = signDetails(h);
-      return `  - البيت ${i+1}: ${d.signAr} ${d.degree}°${d.minutes}′`;
+      const signName = lang.startsWith('en')
+        ? ENGLISH_SIGNS[d.idx]
+        : lang.startsWith('fr')
+        ? FRENCH_SIGNS[d.idx]
+        : d.signAr;
+      return `${L.housePrefix} ${i+1}: ${signName} ${d.degree}°${d.minutes}′`;
     });
 
     // Planets
-    const planetsLines = chartData.planets.map(p => {
+    const planetsLines = planetsWithHouses.map(p => {
       const d = signDetails(p.longitude);
-      const retro = p.retrograde ? ' (رجعي)' : '';
-      return `  - ${p.name} في ${d.signAr} ${d.degree}°${d.minutes}′${retro}`;
+      const signName = lang.startsWith('en')
+        ? ENGLISH_SIGNS[d.idx]
+        : lang.startsWith('fr')
+        ? FRENCH_SIGNS[d.idx]
+        : d.signAr;
+      const retro = p.retrograde ? (lang.startsWith('fr') ? ' (rétrograde)' : lang.startsWith('en') ? ' (retrograde)' : ' (رجعي)') : '';
+      return `${L.housePrefix.replace('House','') === '  - ' ? p.name : p.name} ${lang.startsWith('en') ? 'in' : lang.startsWith('fr') ? 'en' : 'في'} ${signName} ${d.degree}°${d.minutes}′${retro} (${lang.startsWith('en') ? 'House' : lang.startsWith('fr') ? 'Maison' : 'البيت'} ${p.house})`;
     });
 
     // Aspects
     const aspects = findMajorAspects(planetsWithPos);
     const aspectsStr = aspects.length > 0
-      ? `التأثيرات: ${aspects.join(', ')}`
-      : 'لا توجد تأثيرات كبرى.';
+      ? `${L.aspectsNone.replace('No major aspects.','')} ${aspects.join(', ')}`
+      : L.aspectsNone;
 
     summaryPrompt = [
-      `الطالع: ${ascStr}`,
-      `أوج البيوت:`,
+      `${L.ascLabel}: ${ascStr}`,
+      `${L.housesLabel}`,
       ...housesLines,
-      `الكواكب:`,
+      `${L.planetsLabel}`,
       ...planetsLines,
       aspectsStr
     ].join('\n');
