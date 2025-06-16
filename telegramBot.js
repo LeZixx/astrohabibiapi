@@ -685,10 +685,18 @@ bot.on('message', async (msg) => {
     await bot.sendChatAction(chatId, 'typing');
     const resp = await axios.post(`${SERVICE_URL}/interpret`, payload);
     const { answer, natalChart, transitChart } = resp.data;
-    // For testing: print the transit chart JSON
-    await bot.sendMessage(chatId, `📊 Transit Chart:\n\`\`\`json\n${JSON.stringify(transitChart, null, 2)}\n\`\`\``, { parse_mode: 'Markdown' });
+    // Print the transit chart as a code block using HTML for proper formatting
+    await bot.sendMessage(
+      chatId,
+      `📊 Transit Chart:\n<pre>${JSON.stringify(transitChart, null, 2)}</pre>`,
+      { parse_mode: 'HTML' }
+    );
     // You can also print the natal chart if desired:
-    // await bot.sendMessage(chatId, `📊 Natal Chart:\n\`\`\`json\n${JSON.stringify(natalChart, null, 2)}\n\`\`\``, { parse_mode: 'Markdown' });
+    // await bot.sendMessage(
+    //   chatId,
+    //   `📊 Natal Chart:\n<pre>${JSON.stringify(natalChart, null, 2)}</pre>`,
+    //   { parse_mode: 'HTML' }
+    // );
     return bot.sendMessage(chatId, answer);
   } catch (err) {
     console.error('Interpretation error:', err);
