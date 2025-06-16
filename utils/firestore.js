@@ -7,6 +7,10 @@ const db = admin.firestore();
  * @param {object} chartData   The object you want to persist
  */
 async function saveChart(userId, chartData) {
+  if (!Array.isArray(chartData.houses) || chartData.houses.length !== 12) {
+    console.error(`❌ Invalid houses array length: ${chartData.houses?.length}`);
+    throw new Error('Chart data must include exactly 12 house cusps');
+  }
   const chartRef = db
     .collection('users')
     .doc(userId)
