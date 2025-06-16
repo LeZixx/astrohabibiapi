@@ -663,6 +663,39 @@ function formatFullInterpretation(data) {
   return data.interpretation;
 }
 
+// Helper to format the transit chart as a user-friendly list
+function formatTransitChart(transits, language) {
+  if (!Array.isArray(transits) || transits.length === 0) {
+    return language === 'Arabic'
+      ? '❓ لا توجد بيانات عبور متاحة حالياً.'
+      : language === 'French'
+      ? '❓ Aucune donnée de transit disponible pour le moment.'
+      : '❓ No transit data available.';
+  }
+  const lines = [];
+  const title =
+    language === 'Arabic'
+      ? '📊 خريطة العبور الحالية'
+      : language === 'French'
+      ? '📊 Carte des transits actuels'
+      : '📊 Transit Chart:';
+  lines.push(title);
+  transits.forEach(t => {
+    const det = degreeToSignDetails(t.currentLongitude, language);
+    const retro =
+      t.retrograde
+        ? language === 'Arabic'
+          ? ' (رجعي)'
+          : ' (R)'
+        : '';
+    const signName = det.signName;
+    lines.push(
+      `• ${t.name}: \`${signName} ${det.degree}°${det.minutes}′${retro}\``
+    );
+  });
+  return lines.join('\n');
+}
+
 module.exports = bot;
 
 // Catch-all handler for follow-up interpretation questions
@@ -685,12 +718,12 @@ bot.on('message', async (msg) => {
     await bot.sendChatAction(chatId, 'typing');
     const resp = await axios.post(`${SERVICE_URL}/interpret`, payload);
     const { answer, natalChart, transitChart } = resp.data;
-    // Print the transit chart as a code block using HTML for proper formatting
-    await bot.sendMessage(
-      chatId,
-      `📊 Transit Chart:\n<pre>${JSON.stringify(transitChart, null, 2)}</pre>`,
-      { parse_mode: 'HTML', reply_to_message_id: msg.message_id }
-    );
+    // Send a nicely formatted transit chart
+    const transitMsg = formatTransitChart(transitChart, state.language || 'English');
+    await bot.sendMessage(chatId, transitMsg, {
+      parse_mode: 'Markdown',
+      reply_to_message_id: msg.message_id
+    });
     // You can also print the natal chart if desired:
     // await bot.sendMessage(
     //   chatId,
