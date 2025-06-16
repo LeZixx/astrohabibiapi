@@ -6,6 +6,18 @@ const SONAR_API_KEY = process.env.SONAR_API_KEY;
 
 const ARABIC_SIGNS = ['الحمل','الثور','الجوزاء','السرطان','الأسد','العذراء','الميزان','العقرب','القوس','الجدي','الدلو','الحوت'];
 
+function signDetails(lon) {
+  const norm = ((lon % 360) + 360) % 360;
+  const idx = Math.floor(norm / 30);
+  const degree = Math.floor(norm % 30);
+  const minutes = Math.floor(((norm % 30) - degree) * 60);
+  return {
+    signAr: ARABIC_SIGNS[idx] || 'unknown',
+    degree,
+    minutes
+  };
+}
+
 // function findHouse(longitude, houses) {
 //   for (let i = 0; i < houses.length; i++) {
 //     const start = houses[i];
@@ -77,51 +89,51 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
 
   let summaryPrompt;
   if (chartData.houses && chartData.ascendant != null) {
-    // whole-sign houses based on ascendant sign
-    const ascSignIndex = Math.floor((((chartData.ascendant % 360) + 360) % 360) / 30);
-    const planetsWithHouses = planetsWithPos.map(p => {
-      const normLon = ((p.longitude % 360) + 360) % 360;
-      const signIndex = Math.floor(normLon / 30);
-      const house = ((signIndex - ascSignIndex + 12) % 12) + 1;
-      return { ...p, house };
+    // Ascendant
+    const asc = signDetails(chartData.ascendant);
+    const ascStr = `${asc.degree}°${asc.minutes}′ ${asc.signAr}`;
+
+    // Houses
+    const housesLines = chartData.houses.map((h, i) => {
+      const d = signDetails(h);
+      return `  - البيت ${i+1}: ${d.signAr} ${d.degree}°${d.minutes}′`;
     });
-    const aspects = findMajorAspects(planetsWithHouses);
 
-    const ascDegRaw = chartData.ascendant;
-    const ascDegNorm = ((ascDegRaw % 360) + 360) % 360;
-    const ascSignIndex2 = Math.floor(ascDegNorm / 30);
-    const ascDegree = Math.floor(ascDegNorm % 30);
-    const ascMinutes = Math.floor(((ascDegNorm % 30) - ascDegree) * 60);
-    const ascSignAr = ARABIC_SIGNS[ascSignIndex2] || 'unknown';
-    const ascStr = `${ascDegree}°${ascMinutes}′ ${ascSignAr}`;
+    // Planets
+    const planetsLines = chartData.planets.map(p => {
+      const d = signDetails(p.longitude);
+      const retro = p.retrograde ? ' (رجعي)' : '';
+      return `  - ${p.name} في ${d.signAr} ${d.degree}°${d.minutes}′${retro}`;
+    });
 
-    const planetsSummary = planetsWithHouses.map(p => {
-      const degStr = `${p.degree}°${p.minutes}′`;
-      const house = p.house || 'unknown';
-      return `${p.name} عند ${degStr} في ${p.sign.signAr} (البيت ${house})`;
-    }).join(', ');
-
-    const aspectsSummary = aspects.length > 0 ? `التأثيرات: ${aspects.join(', ')}` : 'لا توجد تأثيرات كبرى.';
+    // Aspects
+    const aspects = findMajorAspects(planetsWithPos);
+    const aspectsStr = aspects.length > 0
+      ? `التأثيرات: ${aspects.join(', ')}`
+      : 'لا توجد تأثيرات كبرى.';
 
     summaryPrompt = [
       `الطالع: ${ascStr}`,
-      `أوج البيوت: ${chartData.houses.map((h, i) => `البيت ${i+1} @ ${h.toFixed(2)}°`).join(', ')}`,
-      `الكواكب: ${planetsSummary}`,
-      aspectsSummary
+      `أوج البيوت:`,
+      ...housesLines,
+      `الكواكب:`,
+      ...planetsLines,
+      aspectsStr
     ].join('\n');
   } else {
+    // fallback: no houses
     const aspects = findMajorAspects(planetsWithPos);
     const planetsSummary = planetsWithPos.map(p => {
       const degStr = `${p.degree}°${p.minutes}′`;
       return `${p.name} عند ${degStr} في ${p.sign.signAr}`;
     }).join(', ');
-
-    const aspectsSummary = aspects.length > 0 ? `التأثيرات: ${aspects.join(', ')}` : 'لا توجد تأثيرات كبرى.';
-
+    const aspectsSummary = aspects.length > 0
+      ? `التأثيرات: ${aspects.join(', ')}`
+      : 'لا توجد تأثيرات كبرى.';
     summaryPrompt = [
       `الكواكب حسب البروج (بدون بيوت):`,
-      `${planetsSummary}`,
-      `${aspectsSummary}`
+      planetsSummary,
+      aspectsSummary
     ].join('\n');
   }
 
