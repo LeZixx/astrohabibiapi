@@ -4,7 +4,6 @@ const { calcJulianDayAndCoords, calculateFullChart } = require("../utils/astrolo
 const swisseph = require('swisseph');
 const { DateTime } = require('luxon');
 const tzlookup = require('tz-lookup');
-
 const admin = require('firebase-admin');
 
 // helper to convert a degree to a zodiac sign name
@@ -13,16 +12,34 @@ function degreeToSign(deg) {
   return signs[Math.floor((deg % 360) / 30)];
 }
 
+// helper to find which house a planet is in
+function findHouse(longitude, houses) {
+  if (!houses || !Array.isArray(houses)) return null;
+  
+  for (let i = 0; i < houses.length; i++) {
+    const start = houses[i];
+    const end = houses[(i + 1) % houses.length];
+    
+    if (start < end) {
+      if (longitude >= start && longitude < end) return i + 1;
+    } else {
+      // wrap around 360°
+      if (longitude >= start || longitude < end) return i + 1;
+    }
+  }
+  return null;
+}
+
 const { interpretChart } = require("../utils/interpreter");
 const { saveChart } = require("../utils/firestore");
 
 router.post("/", async (req, res) => {
   const { userId, birthDate, birthTime, birthPlace, latitude, longitude, dialect, withInterpretation } = req.body;
-  
+
   if (!userId) {
     return res.status(400).json({ error: "Missing userId parameter" });
   }
-  
+
   // Require birthDate; birthTime can be null but then we need a birthPlace (to geocode) or coordinates
   if (!birthDate || ((birthTime == null || birthTime === '') && (!birthPlace && (latitude == null || longitude == null)))) {
     return res.status(400).json({ error: "Missing required parameters" });
@@ -30,7 +47,7 @@ router.post("/", async (req, res) => {
 
   try {
     let julianDay, lat, lon, hasExactTime = false;
-    
+
     // Check if we have both birth time and coordinates for precise calculation
     if (birthTime && birthTime !== '' && latitude != null && longitude != null) {
       // User provided coordinates and time directly - this should give full chart
@@ -40,15 +57,18 @@ router.post("/", async (req, res) => {
 
       // Determine timezone from coordinates.
       const zone = tzlookup(lat, lon);
+
       // Parse birthDate & birthTime in that zone.
       const dt = DateTime.fromFormat(
         `${birthDate} ${birthTime}`,
         'd LLLL yyyy h:mm a',
         { zone, setZone: true }
       );
+
       if (!dt.isValid) {
         return res.status(400).json({ error: `Invalid date/time: ${birthDate} ${birthTime}` });
       }
+
       // Convert to UTC and compute Julian Day.
       const utc = dt.toUTC();
       const jd = swisseph.swe_julday(
@@ -77,17 +97,24 @@ router.post("/", async (req, res) => {
 
     // Derive rising sign - only if we have exact time and ascendant
     const risingSign = (hasExactTime && ascendant) ? degreeToSign(ascendant) : null;
-    
+
     // Label planets with sign & house number
     const labeledPlanets = planets.map(p => {
       const sign = degreeToSign(p.longitude);
+      
       // Determine house: only if we have exact time and houses array
       let houseNumber = null;
       if (hasExactTime && Array.isArray(houses)) {
-        const idx = houses.findIndex(cusp => p.longitude < cusp);
-        houseNumber = idx >= 0 ? idx + 1 : 12;
+        houseNumber = findHouse(p.longitude, houses);
       }
-      return { ...p, sign, house: houseNumber };
+      
+      return { 
+        ...p, 
+        sign, 
+        house: houseNumber,
+        longitude: p.longitude,
+        retrograde: p.retrograde
+      };
     });
 
     let response = {
@@ -111,9 +138,28 @@ router.post("/", async (req, res) => {
       }
     }
 
-    // Persist natal chart in Firestore for interpret endpoint
+    // Persist complete natal chart in Firestore with all calculated data
     try {
-      await admin.firestore().collection('charts').doc(userId).set(response);
+      // Save the complete response including labeled planets with house positions
+      await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('charts')
+        .add({
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          rawChartData: response,
+          // Also save a flattened version for easier querying
+          julianDay,
+          lat,
+          lon,
+          ascendant: response.ascendant,
+          risingSign: response.risingSign,
+          houses: response.houses,
+          planets: response.planets,
+          hasExactTime: response.hasExactTime
+        });
+      
+      console.log(`✅ Chart saved to Firestore for user ${userId}`);
     } catch (fsErr) {
       console.warn("⚠️ Failed to save chart to Firestore:", fsErr);
     }
