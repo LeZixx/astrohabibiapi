@@ -4,6 +4,12 @@ const { getLiveTransits } = require('../utils/transitCalculator');
 const { getLatestChart } = require('../utils/firestore');
 const interpreter = require('../utils/interpreter');
 
+// helper: decide if this question implies a transit-related query
+function needsTransit(question) {
+  const re = /\b(next|tomorrow|today|week|month|year|when|will|transit|move|affect|impact)\b/i;
+  return re.test(question);
+}
+
 console.log('🔍 interpretChartQuery import:', require('../utils/interpreter'));
 console.log('🎯 [routes/interpret] POST /interpret route loaded');
 router.post('/', async (req, res) => {
@@ -21,25 +27,42 @@ router.post('/', async (req, res) => {
     // Extract the stored raw chart data (fallback if no rawChartData wrapper)
     const natalChart = latest.rawChartData || latest;
 
-    // 2. Compute all live transits for this chart
-    const transitChart = await getLiveTransits(natalChart);
-    console.log('🔎 transitChart:', transitChart);
+    // decide if we should compute transits
+    const transitNeeded = needsTransit(question);
+    let transitChart = [];
+    let relevantTransits = [];
 
-    // 3. Filter to only the transits relevant to the user's question
-    const lowerQuestion = question.toLowerCase();
-    // Match transits by planet name in question
-    let relevantTransits = transitChart.filter(t =>
-      lowerQuestion.includes(t.name.toLowerCase())
-    );
-    if (relevantTransits.length === 0) {
-      relevantTransits = transitChart;
+    if (transitNeeded) {
+      // 2. Compute live transits for this chart
+      transitChart = await getLiveTransits(natalChart);
+      console.log('🔎 transitChart:', transitChart);
+
+      // 3. Filter transits matching user's question
+      const lowerQuestion = question.toLowerCase();
+      relevantTransits = transitChart.filter(t =>
+        lowerQuestion.includes(t.name.toLowerCase())
+      );
+      if (relevantTransits.length === 0) {
+        relevantTransits = transitChart;
+      }
     }
 
-    // 4. Interpret with the LLM, passing natal chart plus relevant transits
-    const extendedChart = { ...natalChart, transits: relevantTransits };
-    const answer = await interpreter.interpretChartQuery(extendedChart, question, dialect);
+    // 4. Prepare chart for interpretation
+    const chartForLLM = transitNeeded
+      ? { ...natalChart, transits: relevantTransits }
+      : natalChart;
 
-    return res.json({ answer, natalChart, transitChart });
+    const answer = await interpreter.interpretChartQuery(
+      chartForLLM,
+      question,
+      dialect
+    );
+
+    const responsePayload = { answer, natalChart };
+    if (transitNeeded) {
+      responsePayload.transitChart = transitChart;
+    }
+    return res.json(responsePayload);
   } catch (err) {
     console.error('Error interpreting chart query:', err);
     return res.status(500).json({ error: err.message || 'Failed to interpret chart query.' });
