@@ -6,19 +6,19 @@ const SONAR_API_KEY = process.env.SONAR_API_KEY;
 
 const ARABIC_SIGNS = ['الحمل','الثور','الجوزاء','السرطان','الأسد','العذراء','الميزان','العقرب','القوس','الجدي','الدلو','الحوت'];
 
-function findHouse(longitude, houses) {
-  for (let i = 0; i < houses.length; i++) {
-    const start = houses[i];
-    const end = houses[(i + 1) % houses.length];
-    if (start < end) {
-      if (longitude >= start && longitude < end) return i + 1;
-    } else {
-      // wrap around 360°
-      if (longitude >= start || longitude < end) return i + 1;
-    }
-  }
-  return undefined;
-}
+// function findHouse(longitude, houses) {
+//   for (let i = 0; i < houses.length; i++) {
+//     const start = houses[i];
+//     const end = houses[(i + 1) % houses.length];
+//     if (start < end) {
+//       if (longitude >= start && longitude < end) return i + 1;
+//     } else {
+//       // wrap around 360°
+//       if (longitude >= start || longitude < end) return i + 1;
+//     }
+//   }
+//   return undefined;
+// }
 
 function computePlanetPositions(planets) {
   return planets.map(p => {
@@ -77,18 +77,22 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
 
   let summaryPrompt;
   if (chartData.houses && chartData.ascendant != null) {
-    const planetsWithHouses = planetsWithPos.map(p => ({
-      ...p,
-      house: findHouse(p.longitude, chartData.houses)
-    }));
+    // whole-sign houses based on ascendant sign
+    const ascSignIndex = Math.floor((((chartData.ascendant % 360) + 360) % 360) / 30);
+    const planetsWithHouses = planetsWithPos.map(p => {
+      const normLon = ((p.longitude % 360) + 360) % 360;
+      const signIndex = Math.floor(normLon / 30);
+      const house = ((signIndex - ascSignIndex + 12) % 12) + 1;
+      return { ...p, house };
+    });
     const aspects = findMajorAspects(planetsWithHouses);
 
     const ascDegRaw = chartData.ascendant;
     const ascDegNorm = ((ascDegRaw % 360) + 360) % 360;
-    const ascSignIndex = Math.floor(ascDegNorm / 30);
+    const ascSignIndex2 = Math.floor(ascDegNorm / 30);
     const ascDegree = Math.floor(ascDegNorm % 30);
     const ascMinutes = Math.floor(((ascDegNorm % 30) - ascDegree) * 60);
-    const ascSignAr = ARABIC_SIGNS[ascSignIndex] || 'unknown';
+    const ascSignAr = ARABIC_SIGNS[ascSignIndex2] || 'unknown';
     const ascStr = `${ascDegree}°${ascMinutes}′ ${ascSignAr}`;
 
     const planetsSummary = planetsWithHouses.map(p => {
