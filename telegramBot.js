@@ -689,7 +689,7 @@ bot.on('message', async (msg) => {
     await bot.sendMessage(
       chatId,
       `📊 Transit Chart:\n<pre>${JSON.stringify(transitChart, null, 2)}</pre>`,
-      { parse_mode: 'HTML' }
+      { parse_mode: 'HTML', reply_to_message_id: msg.message_id }
     );
     // You can also print the natal chart if desired:
     // await bot.sendMessage(
@@ -697,7 +697,7 @@ bot.on('message', async (msg) => {
     //   `📊 Natal Chart:\n<pre>${JSON.stringify(natalChart, null, 2)}</pre>`,
     //   { parse_mode: 'HTML' }
     // );
-    return bot.sendMessage(chatId, answer);
+    return bot.sendMessage(chatId, answer, { reply_to_message_id: msg.message_id });
   } catch (err) {
     console.error('Interpretation error:', err);
     return bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
