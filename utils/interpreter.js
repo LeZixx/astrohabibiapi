@@ -23,6 +23,8 @@ function signDetails(lon) {
 }
 
 function findHouse(longitude, houses) {
+  if (!houses || !Array.isArray(houses)) return null;
+  
   for (let i = 0; i < houses.length; i++) {
     const start = houses[i];
     const end = houses[(i + 1) % houses.length];
@@ -33,7 +35,7 @@ function findHouse(longitude, houses) {
       if (longitude >= start || longitude < end) return i + 1;
     }
   }
-  return undefined;
+  return null;
 }
 
 function computePlanetPositions(planets) {
@@ -54,24 +56,36 @@ function computePlanetPositions(planets) {
   });
 }
 
-function findMajorAspects(planets) {
+function findAllAspects(planets) {
   const aspects = [];
-  const aspectAngles = [
-    { name: 'Conjunction', angle: 0 },
-    { name: 'Sextile', angle: 60 },
-    { name: 'Square', angle: 90 },
-    { name: 'Trine', angle: 120 },
-    { name: 'Opposition', angle: 180 }
+  const aspectTypes = [
+    { name: 'Conjunction', angle: 0, orb: 8 },
+    { name: 'Sextile', angle: 60, orb: 6 },
+    { name: 'Square', angle: 90, orb: 8 },
+    { name: 'Trine', angle: 120, orb: 8 },
+    { name: 'Opposition', angle: 180, orb: 8 },
+    { name: 'Semi-sextile', angle: 30, orb: 3 },
+    { name: 'Semi-square', angle: 45, orb: 3 },
+    { name: 'Sesquiquadrate', angle: 135, orb: 3 },
+    { name: 'Quincunx', angle: 150, orb: 3 }
   ];
-  const orb = 2;
 
   for (let i = 0; i < planets.length; i++) {
     for (let j = i + 1; j < planets.length; j++) {
       let diff = Math.abs(planets[i].longitude - planets[j].longitude);
       if (diff > 180) diff = 360 - diff;
-      for (const aspect of aspectAngles) {
-        if (Math.abs(diff - aspect.angle) <= orb) {
-          aspects.push(`${planets[i].name} ${aspect.name} ${planets[j].name}`);
+      
+      for (const aspectType of aspectTypes) {
+        if (Math.abs(diff - aspectType.angle) <= aspectType.orb) {
+          const orb = Math.abs(diff - aspectType.angle);
+          aspects.push({
+            planet1: planets[i].name,
+            planet2: planets[j].name,
+            type: aspectType.name,
+            angle: aspectType.angle,
+            orb: orb.toFixed(2),
+            exact: diff.toFixed(2)
+          });
           break;
         }
       }
@@ -85,16 +99,6 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   
   const lang = (dialect || '').toLowerCase();
   
-  // choose labels and sign array based on language
-  let L;
-  if (lang.startsWith('en')) {
-    L = { ascLabel: 'Ascendant', housesLabel: 'Houses:', housePrefix: ' - House', planetsLabel: 'Planets:', aspectsNone: 'No major aspects.' };
-  } else if (lang.startsWith('fr')) {
-    L = { ascLabel: 'Ascendant', housesLabel: 'Maisons:', housePrefix: ' - Maison', planetsLabel: 'Planètes:', aspectsNone: 'Pas d\'aspects majeurs.' };
-  } else {
-    L = { ascLabel: 'الطالع', housesLabel: 'أوج البيوت:', housePrefix: ' - البيت', planetsLabel: 'الكواكب:', aspectsNone: 'لا توجد تأثيرات كبرى.' };
-  }
-
   if (!SONAR_API_KEY) {
     throw new Error('SONAR_API_KEY is not set; please set the env var before interpreting.');
   }
@@ -106,86 +110,82 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
   const planetsWithPos = computePlanetPositions(chartData.planets);
   const planetsWithHouses = planetsWithPos.map(p => ({
     ...p,
-    house: findHouse(p.longitude, chartData.houses)
+    house: p.house || findHouse(p.longitude, chartData.houses)
   }));
 
-  let summaryPrompt;
+  // Format detailed chart data for interpretation
+  let detailedPrompt = 'NATAL CHART DETAILS:\n\n';
 
-  if (chartData.houses && chartData.ascendant != null) {
-    // Ascendant
+  // Ascendant
+  if (chartData.ascendant != null) {
     const ascDet = signDetails(chartData.ascendant);
-    const ascSign = lang.startsWith('en')
-      ? ENGLISH_SIGNS[ascDet.idx]
-      : lang.startsWith('fr')
-      ? FRENCH_SIGNS[ascDet.idx]
-      : ascDet.signAr;
-    const ascStr = `${ascDet.degree}°${ascDet.minutes}′ ${ascSign}`;
-
-    // Houses
-    const housesLines = chartData.houses.map((h, i) => {
-      const d = signDetails(h);
-      const signName = lang.startsWith('en')
-        ? ENGLISH_SIGNS[d.idx]
-        : lang.startsWith('fr')
-        ? FRENCH_SIGNS[d.idx]
-        : d.signAr;
-      return `${L.housePrefix} ${i+1}: ${signName} ${d.degree}°${d.minutes}′`;
-    });
-
-    // Planets
-    const planetsLines = planetsWithHouses.map(p => {
-      const d = signDetails(p.longitude);
-      const signName = lang.startsWith('en')
-        ? ENGLISH_SIGNS[d.idx]
-        : lang.startsWith('fr')
-        ? FRENCH_SIGNS[d.idx]
-        : d.signAr;
-      const retro = p.retrograde ? (lang.startsWith('fr') ? ' (rétrograde)' : lang.startsWith('en') ? ' (retrograde)' : ' (رجعي)') : '';
-      return `${L.housePrefix.replace('House','') === ' - ' ? p.name : p.name} ${lang.startsWith('en') ? 'in' : lang.startsWith('fr') ? 'en' : 'في'} ${signName} ${d.degree}°${d.minutes}′${retro} (${lang.startsWith('en') ? 'House' : lang.startsWith('fr') ? 'Maison' : 'البيت'} ${p.house})`;
-    });
-
-    // Aspects
-    const aspects = findMajorAspects(planetsWithPos);
-    const aspectsStr = aspects.length > 0
-      ? `${L.aspectsNone.replace('No major aspects.','')} ${aspects.join(', ')}`
-      : L.aspectsNone;
-
-    summaryPrompt = [
-      `${L.ascLabel}: ${ascStr}`,
-      `${L.housesLabel}`,
-      ...housesLines,
-      `${L.planetsLabel}`,
-      ...planetsLines,
-      aspectsStr
-    ].join('\n');
-  } else {
-    // fallback: no houses
-    const aspects = findMajorAspects(planetsWithPos);
-    const planetsSummary = planetsWithPos.map(p => {
-      const degStr = `${p.degree}°${p.minutes}′`;
-      return `${p.name} عند ${degStr} في ${p.sign.signAr}`;
-    }).join(', ');
-    const aspectsSummary = aspects.length > 0
-      ? `التأثيرات: ${aspects.join(', ')}`
-      : 'لا توجد تأثيرات كبرى.';
-    summaryPrompt = [
-      `الكواكب حسب البروج (بدون بيوت):`,
-      planetsSummary,
-      aspectsSummary
-    ].join('\n');
+    const ascSign = lang.startsWith('en') ? ENGLISH_SIGNS[ascDet.idx] :
+                    lang.startsWith('fr') ? FRENCH_SIGNS[ascDet.idx] :
+                    ARABIC_SIGNS[ascDet.idx];
+    detailedPrompt += `ASCENDANT: ${ascSign} ${ascDet.degree}°${ascDet.minutes}′\n\n`;
   }
 
-  console.log('summaryPrompt:', summaryPrompt);
+  // Houses - one by one
+  if (chartData.houses && Array.isArray(chartData.houses)) {
+    detailedPrompt += 'HOUSES:\n';
+    chartData.houses.forEach((h, i) => {
+      const hDet = signDetails(h);
+      const signName = lang.startsWith('en') ? ENGLISH_SIGNS[hDet.idx] :
+                       lang.startsWith('fr') ? FRENCH_SIGNS[hDet.idx] :
+                       ARABIC_SIGNS[hDet.idx];
+      detailedPrompt += `House ${i + 1}: ${signName} ${hDet.degree}°${hDet.minutes}′\n`;
+    });
+    detailedPrompt += '\n';
+  }
+
+  // Planets - one by one with house placements
+  detailedPrompt += 'PLANETS:\n';
+  planetsWithHouses.forEach(p => {
+    const pDet = signDetails(p.longitude);
+    const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
+                     lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
+                     ARABIC_SIGNS[pDet.idx];
+    const retro = p.retrograde ? ' (Retrograde)' : '';
+    detailedPrompt += `${p.name}: ${signName} ${pDet.degree}°${pDet.minutes}′${retro}`;
+    if (p.house) {
+      detailedPrompt += ` in House ${p.house}`;
+    }
+    detailedPrompt += '\n';
+  });
+  detailedPrompt += '\n';
+
+  // Aspects - all aspects with orbs
+  const allAspects = findAllAspects(planetsWithPos);
+  if (allAspects.length > 0) {
+    detailedPrompt += 'ASPECTS:\n';
+    allAspects.forEach(asp => {
+      detailedPrompt += `${asp.planet1} ${asp.type} ${asp.planet2} (orb: ${asp.orb}°)\n`;
+    });
+  }
+
+  console.log('Detailed prompt for interpretation:', detailedPrompt);
 
   try {
     console.log('🕒 [interpreter] Sending prompt to Sonar at', new Date().toISOString());
     const t0 = Date.now();
     
+    const systemPrompt = lang.startsWith('en') ? 
+      'You are a professional astrologer. Provide a detailed, structured interpretation following this exact format:\n\n1. ASCENDANT: Explain the rising sign and its significance\n\n2. HOUSES (1-12): For each house, explain:\n- Which sign rules it\n- What life area it represents\n- What this placement means for the native\n\n3. PLANETS: For each planet, explain:\n- Its sign placement\n- Its house placement\n- What this combination means\n\n4. ASPECTS: For each aspect, explain:\n- The nature of the aspect (harmonious/challenging)\n- How these two planets interact\n- The practical implications\n\nBe specific and detailed for each placement.' :
+      lang.startsWith('fr') ?
+      'Vous êtes un astrologue professionnel. Fournissez une interprétation détaillée et structurée en suivant ce format exact:\n\n1. ASCENDANT: Expliquez le signe ascendant et sa signification\n\n2. MAISONS (1-12): Pour chaque maison, expliquez:\n- Quel signe la gouverne\n- Quel domaine de vie elle représente\n- Ce que ce placement signifie pour le natif\n\n3. PLANÈTES: Pour chaque planète, expliquez:\n- Son placement en signe\n- Son placement en maison\n- Ce que cette combinaison signifie\n\n4. ASPECTS: Pour chaque aspect, expliquez:\n- La nature de l\'aspect (harmonieux/difficile)\n- Comment ces deux planètes interagissent\n- Les implications pratiques\n\nSoyez spécifique et détaillé pour chaque placement.' :
+      'أنت منجم محترف. قدم تفسيرًا مفصلاً ومنظمًا باتباع هذا التنسيق بالضبط:\n\n1. الطالع: اشرح الطالع وأهميته\n\n2. البيوت (1-12): لكل بيت، اشرح:\n- أي برج يحكمه\n- أي مجال من مجالات الحياة يمثل\n- ماذا يعني هذا الموضع للمولود\n\n3. الكواكب: لكل كوكب، اشرح:\n- موضعه في البرج\n- موضعه في البيت\n- ماذا يعني هذا المزيج\n\n4. التأثيرات: لكل تأثير، اشرح:\n- طبيعة التأثير (متناغم/صعب)\n- كيف يتفاعل هذان الكوكبان\n- التطبيقات العملية\n\nكن محددًا ومفصلاً لكل موضع.';
+
+    const userPrompt = lang.startsWith('en') ?
+      `Please provide a detailed interpretation of this natal chart in English:\n\n${detailedPrompt}` :
+      lang.startsWith('fr') ?
+      `Veuillez fournir une interprétation détaillée de ce thème natal en français:\n\n${detailedPrompt}` :
+      `يرجى تقديم تفسير مفصل لهذه الخريطة الفلكية بالعربية:\n\n${detailedPrompt}`;
+    
     const response = await axios.post(SONAR_ENDPOINT, {
       model: 'llama-3.1-sonar-large-128k-online',
       messages: [
-        { role: 'system', content: 'You are a professional, spiritual Arabic astrologer. Provide a warm, wise, and dialect-appropriate reading.' },
-        { role: 'user', content: `Here is a birth-chart summary in English:\n${summaryPrompt}\nPlease generate a spiritual, dialect-appropriate Arabic reading in ${dialect}.` }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
       ]
     }, {
       headers: {
@@ -204,11 +204,7 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
 }
 
 /**
- * Interpret live transits into readable sentences in Arabic, English, or French.
- * @param {Array} transits - Array of transit objects from getLiveTransits
- * @param {Object} chartData - Original natal chart data
- * @param {string} [dialect] - Language/dialect for output (optional)
- * @returns {string} Combined interpretation text
+ * Interpret live transits into readable sentences
  */
 function interpretTransits(transits, chartData, dialect = chartData.dialect || 'Arabic') {
   const lang = (dialect || '').toLowerCase();
@@ -237,11 +233,7 @@ function interpretTransits(transits, chartData, dialect = chartData.dialect || '
 }
 
 /**
- * Interpret custom astrology questions using an LLM.
- * @param {Object} chartData - Natal chart and optional transits
- * @param {string} question - User's free-form question
- * @param {string} [dialect] - Language/dialect for response
- * @returns {Promise<string>} LLM-generated answer
+ * Interpret custom astrology questions using an LLM with detailed analysis
  */
 async function interpretChartQuery(chartData, question, dialect = chartData.dialect || 'English') {
   if (!SONAR_API_KEY) {
@@ -249,38 +241,40 @@ async function interpretChartQuery(chartData, question, dialect = chartData.dial
   }
 
   const langLabel = dialect.charAt(0).toUpperCase() + dialect.slice(1);
+  const lang = dialect.toLowerCase();
   
-  // Format the chart data properly for the LLM
-  let formattedChart = 'NATAL CHART:\n';
+  // Format the chart data with complete details
+  let formattedChart = 'COMPLETE NATAL CHART:\n\n';
   
   // Add ascendant if available
   if (chartData.ascendant != null) {
     const ascDet = signDetails(chartData.ascendant);
-    const signName = dialect.toLowerCase().startsWith('en') ? ENGLISH_SIGNS[ascDet.idx] :
-                     dialect.toLowerCase().startsWith('fr') ? FRENCH_SIGNS[ascDet.idx] :
+    const signName = lang.startsWith('en') ? ENGLISH_SIGNS[ascDet.idx] :
+                     lang.startsWith('fr') ? FRENCH_SIGNS[ascDet.idx] :
                      ARABIC_SIGNS[ascDet.idx];
-    formattedChart += `Ascendant: ${signName} ${ascDet.degree}°${ascDet.minutes}′\n`;
+    formattedChart += `ASCENDANT: ${signName} ${ascDet.degree}°${ascDet.minutes}′\n\n`;
   }
   
-  // Add houses if available
+  // Add all 12 houses
   if (chartData.houses && Array.isArray(chartData.houses)) {
-    formattedChart += '\nHOUSES:\n';
+    formattedChart += 'HOUSES (all 12):\n';
     chartData.houses.forEach((h, i) => {
       const hDet = signDetails(h);
-      const signName = dialect.toLowerCase().startsWith('en') ? ENGLISH_SIGNS[hDet.idx] :
-                       dialect.toLowerCase().startsWith('fr') ? FRENCH_SIGNS[hDet.idx] :
+      const signName = lang.startsWith('en') ? ENGLISH_SIGNS[hDet.idx] :
+                       lang.startsWith('fr') ? FRENCH_SIGNS[hDet.idx] :
                        ARABIC_SIGNS[hDet.idx];
       formattedChart += `House ${i + 1}: ${signName} ${hDet.degree}°${hDet.minutes}′\n`;
     });
+    formattedChart += '\n';
   }
   
-  // Add planets with their actual house placements
+  // Add all planets with their exact positions
   if (chartData.planets && Array.isArray(chartData.planets)) {
-    formattedChart += '\nPLANETS:\n';
+    formattedChart += 'PLANETS (complete list):\n';
     chartData.planets.forEach(p => {
       const pDet = signDetails(p.longitude);
-      const signName = dialect.toLowerCase().startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
-                       dialect.toLowerCase().startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
+      const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
+                       lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
                        ARABIC_SIGNS[pDet.idx];
       
       // Find actual house placement
@@ -296,15 +290,28 @@ async function interpretChartQuery(chartData, question, dialect = chartData.dial
       }
       formattedChart += '\n';
     });
+    formattedChart += '\n';
+  }
+  
+  // Calculate and add ALL aspects
+  if (chartData.planets && Array.isArray(chartData.planets)) {
+    const allAspects = findAllAspects(chartData.planets);
+    if (allAspects.length > 0) {
+      formattedChart += 'ASPECTS (complete list with orbs):\n';
+      allAspects.forEach(asp => {
+        formattedChart += `${asp.planet1} ${asp.type} ${asp.planet2} (orb: ${asp.orb}°)\n`;
+      });
+      formattedChart += '\n';
+    }
   }
   
   // Add transits if available
   if (chartData.transits && Array.isArray(chartData.transits)) {
-    formattedChart += '\nCURRENT TRANSITS:\n';
+    formattedChart += 'CURRENT TRANSITS:\n';
     chartData.transits.forEach(t => {
       const tDet = signDetails(t.currentLongitude);
-      const signName = dialect.toLowerCase().startsWith('en') ? ENGLISH_SIGNS[tDet.idx] :
-                       dialect.toLowerCase().startsWith('fr') ? FRENCH_SIGNS[tDet.idx] :
+      const signName = lang.startsWith('en') ? ENGLISH_SIGNS[tDet.idx] :
+                       lang.startsWith('fr') ? FRENCH_SIGNS[tDet.idx] :
                        ARABIC_SIGNS[tDet.idx];
       const retrograde = t.retrograde ? ' (Retrograde)' : '';
       formattedChart += `${t.name}: ${signName} ${tDet.degree}°${tDet.minutes}′${retrograde}\n`;
@@ -314,14 +321,20 @@ async function interpretChartQuery(chartData, question, dialect = chartData.dial
     });
   }
   
+  const structuredPrompt = lang.startsWith('en') ?
+    'IMPORTANT: When interpreting, you must:\n1. Explain each house placement individually (Houses 1-12)\n2. Explain each planet placement individually (not grouped)\n3. Explain each aspect individually with its meaning\n4. Be detailed and specific for each placement\n\nDo NOT group planets together (e.g., "Sun, Mercury and Venus in Libra"). Each planet must be explained separately.' :
+    lang.startsWith('fr') ?
+    'IMPORTANT: Lors de l\'interprétation, vous devez:\n1. Expliquer chaque placement de maison individuellement (Maisons 1-12)\n2. Expliquer chaque placement de planète individuellement (pas groupé)\n3. Expliquer chaque aspect individuellement avec sa signification\n4. Être détaillé et spécifique pour chaque placement\n\nNE PAS regrouper les planètes (ex: "Soleil, Mercure et Vénus en Balance"). Chaque planète doit être expliquée séparément.' :
+    'مهم: عند التفسير، يجب عليك:\n1. شرح كل موضع بيت على حدة (البيوت 1-12)\n2. شرح كل موضع كوكب على حدة (غير مجمّع)\n3. شرح كل تأثير على حدة مع معناه\n4. كن مفصلاً ومحددًا لكل موضع\n\nلا تجمع الكواكب معًا (مثل: "الشمس وعطارد والزهرة في الميزان"). يجب شرح كل كوكب بشكل منفصل.';
+  
   const systemMsg = {
     role: 'system',
-    content: `You are a world-class expert astrologer. You must interpret the astrological data EXACTLY as provided - DO NOT make up or assume house placements. Only state house placements that are explicitly given in the chart data. Answer the user's question in a ${langLabel}-appropriate style, referencing their natal chart and any relevant current transits. Be accurate and specific about planetary positions and house placements.`
+    content: `You are a world-class expert astrologer providing detailed interpretations in ${langLabel}. ${structuredPrompt}\n\nYou must interpret the astrological data EXACTLY as provided - DO NOT make up or assume any placements. Be thorough and explain each element individually.`
   };
   
   const userMsg = {
     role: 'user',
-    content: `Question: ${question}\n\n${formattedChart}\n\nIMPORTANT: Only mention house placements that are explicitly stated in the chart data above. Do not assume or invent house placements.`
+    content: `Question: ${question}\n\n${formattedChart}\n\nPlease provide a detailed interpretation addressing the question while explaining each placement individually.`
   };
   
   const response = await axios.post(SONAR_ENDPOINT, {
