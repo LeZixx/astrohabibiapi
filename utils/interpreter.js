@@ -305,31 +305,50 @@ async function interpretChartQuery(chartData, question, dialect = chartData.dial
     }
   }
   
-  // Add transits if available
+  // Add transits if available - with detailed formatting for focused interpretation
   if (chartData.transits && Array.isArray(chartData.transits)) {
-    formattedChart += 'CURRENT TRANSITS:\n';
+    formattedChart += 'RELEVANT CURRENT TRANSITS:\n';
     chartData.transits.forEach(t => {
       const tDet = signDetails(t.currentLongitude);
       const signName = lang.startsWith('en') ? ENGLISH_SIGNS[tDet.idx] :
                        lang.startsWith('fr') ? FRENCH_SIGNS[tDet.idx] :
                        ARABIC_SIGNS[tDet.idx];
       const retrograde = t.retrograde ? ' (Retrograde)' : '';
-      formattedChart += `${t.name}: ${signName} ${tDet.degree}°${tDet.minutes}′${retrograde}\n`;
+      
+      formattedChart += `\nTransiting ${t.name}:\n`;
+      formattedChart += `  - Currently in ${signName} ${t.degree}°${t.minutes}′${retrograde}\n`;
+      formattedChart += `  - Transiting through House ${t.currentHouse}\n`;
+      
       if (t.aspects && t.aspects.length > 0) {
-        formattedChart += `  Aspects: ${t.aspects.join(', ')}\n`;
+        formattedChart += `  - Aspects:\n`;
+        t.aspects.forEach(asp => {
+          const applying = asp.applying ? 'applying' : 'separating';
+          formattedChart += `    * ${asp.type} to natal ${asp.with} in ${asp.natalSign} (House ${asp.natalHouse}), orb ${asp.orb}°, ${applying}\n`;
+        });
       }
     });
+    formattedChart += '\n';
   }
   
   const structuredPrompt = lang.startsWith('en') ?
-    'IMPORTANT: When interpreting, you must:\n1. Explain each house placement individually (Houses 1-12)\n2. Explain each planet placement individually (not grouped)\n3. Explain each aspect individually with its meaning\n4. Be detailed and specific for each placement\n\nDo NOT group planets together (e.g., "Sun, Mercury and Venus in Libra"). Each planet must be explained separately.' :
+    'IMPORTANT: When interpreting transits for the user\'s question:\n1. Focus ONLY on the relevant transits provided\n2. Explain which houses are being activated by these transits\n3. Explain the timing implications (applying vs separating aspects)\n4. Be specific about how these transits answer their question\n5. Do NOT mention irrelevant transits or general interpretations\n\nFor natal chart questions:\n1. Explain each house placement individually (Houses 1-12)\n2. Explain each planet placement individually (not grouped)\n3. Explain each aspect individually with its meaning\n4. Be detailed and specific for each placement\n\nDo NOT group planets together (e.g., "Sun, Mercury and Venus in Libra"). Each planet must be explained separately.' :
     lang.startsWith('fr') ?
-    'IMPORTANT: Lors de l\'interprétation, vous devez:\n1. Expliquer chaque placement de maison individuellement (Maisons 1-12)\n2. Expliquer chaque placement de planète individuellement (pas groupé)\n3. Expliquer chaque aspect individuellement avec sa signification\n4. Être détaillé et spécifique pour chaque placement\n\nNE PAS regrouper les planètes (ex: "Soleil, Mercure et Vénus en Balance"). Chaque planète doit être expliquée séparément.' :
-    'مهم: عند التفسير، يجب عليك:\n1. شرح كل موضع بيت على حدة (البيوت 1-12)\n2. شرح كل موضع كوكب على حدة (غير مجمّع)\n3. شرح كل تأثير على حدة مع معناه\n4. كن مفصلاً ومحددًا لكل موضع\n\nلا تجمع الكواكب معًا (مثل: "الشمس وعطارد والزهرة في الميزان"). يجب شرح كل كوكب بشكل منفصل.';
+    'IMPORTANT: Lors de l\'interprétation des transits pour la question:\n1. Concentrez-vous UNIQUEMENT sur les transits pertinents fournis\n2. Expliquez quelles maisons sont activées par ces transits\n3. Expliquez les implications temporelles (aspects appliquants vs séparants)\n4. Soyez spécifique sur la façon dont ces transits répondent à la question\n5. NE mentionnez PAS les transits non pertinents ou les interprétations générales\n\nPour les questions sur le thème natal:\n1. Expliquer chaque placement de maison individuellement (Maisons 1-12)\n2. Expliquer chaque placement de planète individuellement (pas groupé)\n3. Expliquer chaque aspect individuellement avec sa signification\n4. Être détaillé et spécifique pour chaque placement\n\nNE PAS regrouper les planètes (ex: "Soleil, Mercure et Vénus en Balance"). Chaque planète doit être expliquée séparément.' :
+    'مهم: عند تفسير العبور للسؤال:\n1. ركز فقط على العبور ذات الصلة المقدمة\n2. اشرح أي بيوت يتم تفعيلها بواسطة هذه العبور\n3. اشرح الآثار الزمنية (التأثيرات المقتربة مقابل المنفصلة)\n4. كن محددًا حول كيفية إجابة هذه العبور على السؤال\n5. لا تذكر العبور غير ذات الصلة أو التفسيرات العامة\n\nللأسئلة عن الخريطة الأصلية:\n1. شرح كل موضع بيت على حدة (البيوت 1-12)\n2. شرح كل موضع كوكب على حدة (غير مجمّع)\n3. شرح كل تأثير على حدة مع معناه\n4. كن مفصلاً ومحددًا لكل موضع\n\nلا تجمع الكواكب معًا (مثل: "الشمس وعطارد والزهرة في الميزان"). يجب شرح كل كوكب بشكل منفصل.';
+  
+  // Check if this is a transit question
+  const isTransitQuestion = chartData.transits && chartData.transits.length > 0;
+  
+  const focusedPrompt = isTransitQuestion ? 
+    (lang.startsWith('en') ? 
+      '\n\nThis is a TRANSIT question. Focus your interpretation on:\n1. The specific transits provided and their current influence\n2. Which natal houses and planets are being activated\n3. The timing of events based on applying/separating aspects\n4. A direct answer to their specific question based on these transits' :
+     lang.startsWith('fr') ?
+      '\n\nC\'est une question de TRANSIT. Concentrez votre interprétation sur:\n1. Les transits spécifiques fournis et leur influence actuelle\n2. Quelles maisons et planètes natales sont activées\n3. Le timing des événements basé sur les aspects appliquants/séparants\n4. Une réponse directe à leur question spécifique basée sur ces transits' :
+      '\n\nهذا سؤال عن العبور. ركز تفسيرك على:\n1. العبور المحددة المقدمة وتأثيرها الحالي\n2. أي بيوت وكواكب أصلية يتم تفعيلها\n3. توقيت الأحداث بناءً على التأثيرات المقتربة/المنفصلة\n4. إجابة مباشرة على سؤالهم المحدد بناءً على هذه العبور') : '';
   
   const systemMsg = {
     role: 'system',
-    content: `You are a world-class expert astrologer providing detailed interpretations in ${langLabel}. ${structuredPrompt}\n\nYou must interpret the astrological data EXACTLY as provided - DO NOT make up or assume any placements. Be thorough and explain each element individually.`
+    content: `You are a world-class expert astrologer providing detailed interpretations in ${langLabel}. ${structuredPrompt}${focusedPrompt}\n\nYou must interpret the astrological data EXACTLY as provided - DO NOT make up or assume any placements.`
   };
   
   const userMsg = {

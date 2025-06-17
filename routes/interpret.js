@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getLiveTransits } = require('../utils/transitCalculator');
+const { getLiveTransits, filterRelevantTransits } = require('../utils/transitCalculator');
 const { getLatestChart } = require('../utils/firestore');
 const interpreter = require('../utils/interpreter');
 
@@ -49,18 +49,15 @@ router.post('/', async (req, res) => {
 
     if (transitNeeded) {
       // 2. Compute live transits for this chart
-      transitChart = await getLiveTransits(natalChart);
-      console.log('🔎 transitChart:', transitChart);
+      const allTransits = await getLiveTransits(natalChart);
+      console.log('🔎 All transits calculated:', allTransits.length);
 
-      // 3. Filter transits matching user's question
-      const lowerQuestion = question.toLowerCase();
-      relevantTransits = transitChart.filter(t =>
-        lowerQuestion.includes(t.name.toLowerCase())
-      );
-
-      if (relevantTransits.length === 0) {
-        relevantTransits = transitChart;
-      }
+      // 3. Filter transits relevant to the user's question
+      relevantTransits = filterRelevantTransits(allTransits, question, natalChart);
+      console.log('🎯 Relevant transits for question:', relevantTransits.length);
+      
+      // Keep full transit chart for reference
+      transitChart = allTransits;
     }
 
     // 4. Prepare chart for interpretation
