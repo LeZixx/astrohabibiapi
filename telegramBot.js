@@ -715,8 +715,14 @@ bot.on('message', async (msg) => {
   const text = msg.text.trim();
   const state = userState[chatId];
 
+  console.log('🔍 Follow-up message handler triggered for:', text);
+  console.log('📋 User state:', state ? `step: ${state.step}` : 'no state');
+
   // Only proceed once user has completed birth-chart flow
-  if (!state || state.step !== 'done') return;
+  if (!state || state.step !== 'done') {
+    console.log('⏸️ Skipping - user not in done state');
+    return;
+  }
 
   const platformKey = `telegram-${chatId}`;
   const payload = {
@@ -726,12 +732,22 @@ bot.on('message', async (msg) => {
   };
 
   try {
+    console.log('🔄 Sending request to /interpret endpoint');
     await bot.sendChatAction(chatId, 'typing');
     const resp = await axios.post(`${SERVICE_URL}/interpret`, payload);
+    console.log('✅ Response received from /interpret');
     const { answer, natalChart, transitChart } = resp.data;
+    
+    console.log('📊 Response data:', { 
+      hasAnswer: !!answer, 
+      hasNatalChart: !!natalChart, 
+      hasTransitChart: !!transitChart,
+      transitChartLength: Array.isArray(transitChart) ? transitChart.length : 0
+    });
     
     // Send transit chart if available
     if (transitChart && Array.isArray(transitChart) && transitChart.length > 0) {
+      console.log('📈 Sending transit chart');
       const transitMsg = formatTransitChart(transitChart, state.language || 'English');
       await bot.sendMessage(chatId, transitMsg, {
         parse_mode: 'Markdown',
@@ -739,14 +755,64 @@ bot.on('message', async (msg) => {
       });
     }
     
-    // Send the interpretation answer
+    // Send the interpretation answer (split if too long)
     if (answer) {
-      return bot.sendMessage(chatId, answer, { reply_to_message_id: msg.message_id });
+      console.log('💬 Sending interpretation answer');
+      
+      // Split message if it's too long for Telegram (4096 char limit)
+      const maxLength = 4000; // Leave some buffer
+      if (answer.length <= maxLength) {
+        return bot.sendMessage(chatId, answer, { reply_to_message_id: msg.message_id });
+      } else {
+        console.log(`📏 Message too long (${answer.length} chars), splitting...`);
+        let startIndex = 0;
+        let messageCount = 0;
+        
+        while (startIndex < answer.length) {
+          let endIndex = Math.min(startIndex + maxLength, answer.length);
+          
+          // Try to break at a natural point (paragraph, sentence, or word)
+          if (endIndex < answer.length) {
+            const slice = answer.slice(startIndex, endIndex);
+            const lastParagraph = slice.lastIndexOf('\n\n');
+            const lastSentence = slice.lastIndexOf('. ');
+            const lastWord = slice.lastIndexOf(' ');
+            
+            if (lastParagraph > startIndex + 500) {
+              endIndex = startIndex + lastParagraph + 2;
+            } else if (lastSentence > startIndex + 500) {
+              endIndex = startIndex + lastSentence + 2;
+            } else if (lastWord > startIndex + 100) {
+              endIndex = startIndex + lastWord;
+            }
+          }
+          
+          const chunk = answer.slice(startIndex, endIndex).trim();
+          
+          try {
+            if (messageCount === 0) {
+              await bot.sendMessage(chatId, chunk, { reply_to_message_id: msg.message_id });
+            } else {
+              await bot.sendMessage(chatId, chunk);
+            }
+            messageCount++;
+            startIndex = endIndex;
+          } catch (sendErr) {
+            console.error('❌ Error sending message chunk:', sendErr.message);
+            break;
+          }
+        }
+        
+        console.log(`✅ Sent ${messageCount} message chunks`);
+        return;
+      }
     } else {
+      console.log('❓ No answer received');
       return bot.sendMessage(chatId, '❓ No interpretation available.', { reply_to_message_id: msg.message_id });
     }
   } catch (err) {
-    console.error('Interpretation error:', err);
+    console.error('❌ Interpretation error:', err.message);
+    console.error('📍 Full error:', err);
     return bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
   }
 });
