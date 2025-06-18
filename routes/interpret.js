@@ -15,7 +15,7 @@ console.log('🎯 [routes/interpret] POST /interpret route loaded');
 
 router.post('/', async (req, res) => {
   try {
-    const { userId, question, dialect } = req.body;
+    const { userId, question, dialect, conversationHistory } = req.body;
     
     if (!userId || !question) {
       return res.status(400).json({ error: 'Request must include userId and question.' });
@@ -104,7 +104,8 @@ router.post('/', async (req, res) => {
     const answer = await interpreter.interpretChartQuery(
       chartForLLM,
       question,
-      interpretDialect
+      interpretDialect,
+      conversationHistory
     );
 
     const responsePayload = { 

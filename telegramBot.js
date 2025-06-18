@@ -517,8 +517,17 @@ bot.on('message', async (msg) => {
         formatChartSummary(chartRes.data, state.language),
         { parse_mode: 'Markdown' }
       );
-      // Save in-memory for follow-ups
+      // Save in-memory for follow-ups and conversation history
       state.lastChart = chartRes.data;
+      state.conversationHistory = []; // Initialize conversation memory
+      
+      // Also store the aspects list for reference in follow-up questions
+      if (chartRes.data.planets) {
+        const { findAllAspects } = require('./utils/interpreter');
+        const allAspects = findAllAspects(chartRes.data.planets);
+        state.lastAspects = allAspects;
+        console.log('💾 Stored', allAspects.length, 'aspects for follow-up questions');
+      }
 
       // Send "please wait" message before interpretation
       await bot.sendMessage(chatId, translations[state.language].chartReady);
@@ -731,9 +740,43 @@ bot.on('message', async (msg) => {
   }
 
   const platformKey = `telegram-${chatId}`;
+  
+  // Initialize conversation history if not exists
+  if (!state.conversationHistory) {
+    state.conversationHistory = [];
+  }
+  
+  // Check if the question is about a specific aspect number and enhance naturally
+  const aspectMatch = text.match(/aspect\s*#?(\d+)/i);
+  let enhancedQuestion = text;
+  
+  if (aspectMatch && state.lastAspects) {
+    const aspectNumber = parseInt(aspectMatch[1]);
+    const aspectIndex = aspectNumber - 1; // Convert to 0-based index
+    
+    if (aspectIndex >= 0 && aspectIndex < state.lastAspects.length) {
+      const specificAspect = state.lastAspects[aspectIndex];
+      enhancedQuestion = `${text} (I'm referring to the ${specificAspect.planet1} ${specificAspect.type} ${specificAspect.planet2} aspect with ${specificAspect.orb}° orb)`;
+      console.log('🎯 Enhanced question with aspect context:', enhancedQuestion);
+    }
+  }
+  
+  // Add the current question to conversation history
+  state.conversationHistory.push({
+    role: 'user',
+    content: enhancedQuestion,
+    timestamp: new Date()
+  });
+  
+  // Keep only last 10 exchanges to avoid context bloat
+  if (state.conversationHistory.length > 20) { // 10 user + 10 assistant messages
+    state.conversationHistory = state.conversationHistory.slice(-20);
+  }
+  
   const payload = {
     userId: platformKey,
-    question: text,
+    question: enhancedQuestion,
+    conversationHistory: state.conversationHistory,
     dialect: state.dialect || 'English'
   };
 
@@ -773,6 +816,13 @@ bot.on('message', async (msg) => {
     // Send the interpretation answer (split if too long)
     if (answer) {
       console.log('💬 Sending interpretation answer');
+      
+      // Save assistant response to conversation history
+      state.conversationHistory.push({
+        role: 'assistant',
+        content: answer,
+        timestamp: new Date()
+      });
       
       // Split message if it's too long for Telegram (4096 char limit)
       const maxLength = 4000; // Leave some buffer

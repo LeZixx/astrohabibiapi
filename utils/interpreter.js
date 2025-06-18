@@ -235,7 +235,7 @@ function interpretTransits(transits, chartData, dialect = chartData.dialect || '
 /**
  * Interpret custom astrology questions using an LLM with detailed analysis
  */
-async function interpretChartQuery(chartData, question, dialect = chartData.dialect || 'English') {
+async function interpretChartQuery(chartData, question, dialect = chartData.dialect || 'English', conversationHistory = []) {
   if (!SONAR_API_KEY) {
     throw new Error('SONAR_API_KEY is not set; please set the env var before interpreting.');
   }
@@ -348,29 +348,59 @@ async function interpretChartQuery(chartData, question, dialect = chartData.dial
   
   const systemMsg = {
     role: 'system',
-    content: `You are a world-class expert astrologer providing detailed interpretations in ${langLabel}. ${structuredPrompt}${focusedPrompt}
+    content: `You are a warm, insightful, and conversational astrologer - like having a deep conversation with a wise friend who happens to be an expert in astrology. Respond naturally and intuitively in ${langLabel}.
 
-CRITICAL INSTRUCTIONS:
-1. You MUST use ONLY the astrological data provided in the user's message
-2. DO NOT use any external astrological knowledge or ephemeris data  
-3. DO NOT make up planetary positions, house placements, or transit dates
-4. DO NOT reference generic astrological events unless they are explicitly provided in the data
-5. If a planet's house position is not provided in the data, say "house position not specified"
-6. If transit dates are not provided in the data, do not mention specific dates
-7. ONLY interpret what is explicitly given to you - nothing else
-8. If you find yourself referencing information not in the provided chart data, STOP and only use what's given
+CONVERSATION STYLE:
+- Be conversational, warm, and personable
+- Ask follow-up questions to deepen the conversation
+- Share insights that connect to the person's lived experience
+- Use natural language, not textbook-style interpretations
+- Feel free to be curious about their life and experiences
+- Make connections between different parts of their chart
+- Offer practical, actionable insights they can apply
 
-This is absolutely essential - any hallucinated information will be considered a critical error.`
+ASTROLOGICAL FOUNDATION (your "north star"):
+1. You MUST use ONLY the exact astrological data provided in the user's message
+2. All planetary positions, aspects, and calculations must be based on the provided data
+3. DO NOT make up any astrological positions or dates not in the data
+4. If information is missing from the data, acknowledge it naturally in conversation
+
+NEVER be rigid or textbook-like. This should feel like a flowing conversation with someone who deeply understands both astrology and human nature.`
   };
   
   const userMsg = {
     role: 'user',
-    content: `Question: ${question}\n\n${formattedChart}\n\nIMPORTANT: Base your interpretation SOLELY on the chart data provided above. Do not use external astrological knowledge, ephemeris data, or online sources. Only interpret what is explicitly shown in the data provided.\n\nPlease provide a detailed interpretation addressing the question while explaining each placement individually.`
+    content: `${question}
+
+Here's my chart data:
+${formattedChart}
+
+I'd love to hear your thoughts and insights! Feel free to ask me follow-up questions or explore whatever seems most interesting or relevant from my chart.`
   };
+  
+  // Build message history including conversation context
+  const messages = [systemMsg];
+  
+  // Add previous conversation history if available (excluding timestamps)
+  if (conversationHistory && conversationHistory.length > 0) {
+    conversationHistory.forEach(msg => {
+      if (msg.role && msg.content) {
+        messages.push({
+          role: msg.role,
+          content: msg.content
+        });
+      }
+    });
+  }
+  
+  // Add current user message
+  messages.push(userMsg);
+  
+  console.log(`💬 Sending ${messages.length} messages to LLM (including ${conversationHistory.length} history items)`);
   
   const response = await axios.post(SONAR_ENDPOINT, {
     model: 'llama-3.1-sonar-small-128k-online',
-    messages: [systemMsg, userMsg]
+    messages: messages
   }, {
     headers: {
       'Authorization': `Bearer ${SONAR_API_KEY}`,
@@ -381,4 +411,4 @@ This is absolutely essential - any hallucinated information will be considered a
   return response.data?.choices?.[0]?.message?.content || 'No interpretation returned.';
 }
 
-module.exports = { interpretChart, interpretTransits, interpretChartQuery };
+module.exports = { interpretChart, interpretTransits, interpretChartQuery, findAllAspects };
