@@ -396,19 +396,37 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
   // Add current user message
   messages.push(userMsg);
   
-  console.log(`💬 Sending ${messages.length} messages to LLM (including ${conversationHistory.length} history items)`);
+  console.log(`💬 Sending ${messages.length} messages to LLM (including ${conversationHistory?.length || 0} history items)`);
   
-  const response = await axios.post(SONAR_ENDPOINT, {
-    model: 'llama-3.1-sonar-small-128k-online',
-    messages: messages
-  }, {
-    headers: {
-      'Authorization': `Bearer ${SONAR_API_KEY}`,
-      'Content-Type': 'application/json'
-    }
-  });
+  // Calculate approximate token count to prevent overload
+  const totalContent = messages.map(m => m.content).join(' ');
+  const approxTokens = totalContent.length / 4; // Rough estimate: 4 chars per token
+  console.log(`📊 Approximate tokens: ${approxTokens}`);
   
-  return response.data?.choices?.[0]?.message?.content || 'No interpretation returned.';
+  if (approxTokens > 100000) { // If approaching context limit
+    console.log('⚠️ Context too large, trimming conversation history');
+    // Keep only system message, chart data, and current question
+    const trimmedMessages = [messages[0], messages[messages.length - 1]];
+    messages.splice(0, messages.length, ...trimmedMessages);
+  }
+  
+  try {
+    const response = await axios.post(SONAR_ENDPOINT, {
+      model: 'llama-3.1-sonar-small-128k-online',
+      messages: messages
+    }, {
+      headers: {
+        'Authorization': `Bearer ${SONAR_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    return response.data?.choices?.[0]?.message?.content || 'No interpretation returned.';
+  } catch (error) {
+    console.error('🚨 LLM API Error:', error.response?.data || error.message);
+    console.error('📋 Request payload size:', JSON.stringify(messages).length, 'characters');
+    throw new Error(`LLM API failed: ${error.response?.data?.error || error.message}`);
+  }
 }
 
 module.exports = { interpretChart, interpretTransits, interpretChartQuery, findAllAspects };

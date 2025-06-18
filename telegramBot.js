@@ -768,9 +768,10 @@ bot.on('message', async (msg) => {
     timestamp: new Date()
   });
   
-  // Keep only last 10 exchanges to avoid context bloat
-  if (state.conversationHistory.length > 20) { // 10 user + 10 assistant messages
-    state.conversationHistory = state.conversationHistory.slice(-20);
+  // Keep only last 6 exchanges to avoid context bloat (more conservative)
+  if (state.conversationHistory.length > 12) { // 6 user + 6 assistant messages
+    state.conversationHistory = state.conversationHistory.slice(-12);
+    console.log('✂️ Trimmed conversation history to last 6 exchanges');
   }
   
   const payload = {

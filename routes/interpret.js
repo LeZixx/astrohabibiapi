@@ -101,6 +101,8 @@ router.post('/', async (req, res) => {
       }
     }
     
+    console.log('🔍 Conversation history length:', conversationHistory ? conversationHistory.length : 0);
+    
     const answer = await interpreter.interpretChartQuery(
       chartForLLM,
       question,
@@ -121,8 +123,19 @@ router.post('/', async (req, res) => {
 
     return res.json(responsePayload);
   } catch (err) {
-    console.error('Error interpreting chart query:', err);
-    return res.status(500).json({ error: err.message || 'Failed to interpret chart query.' });
+    console.error('❌ Error interpreting chart query:', err);
+    console.error('🔍 Error details:', {
+      message: err.message,
+      stack: err.stack?.split('\n')[0],
+      userId,
+      questionLength: question?.length,
+      hasConversationHistory: !!conversationHistory,
+      conversationHistoryLength: conversationHistory?.length
+    });
+    return res.status(500).json({ 
+      error: err.message || 'Failed to interpret chart query.',
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 
