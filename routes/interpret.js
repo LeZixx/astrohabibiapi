@@ -49,15 +49,22 @@ router.post('/', async (req, res) => {
 
     if (transitNeeded) {
       // 2. Compute live transits for this chart
-      const allTransits = await getLiveTransits(natalChart);
-      console.log('🔎 All transits calculated:', allTransits.length);
+      try {
+        const allTransits = await getLiveTransits(natalChart);
+        console.log('🔎 All transits calculated:', allTransits.length);
 
-      // 3. Filter transits relevant to the user's question
-      relevantTransits = filterRelevantTransits(allTransits, question, natalChart);
-      console.log('🎯 Relevant transits for question:', relevantTransits.length);
-      
-      // Keep full transit chart for reference
-      transitChart = allTransits;
+        // 3. Filter transits relevant to the user's question
+        relevantTransits = filterRelevantTransits(allTransits, question, natalChart);
+        console.log('🎯 Relevant transits for question:', relevantTransits.length);
+        
+        // Keep full transit chart for reference
+        transitChart = allTransits;
+      } catch (transitErr) {
+        console.error('❌ Transit calculation error:', transitErr);
+        // Continue without transits rather than failing completely
+        transitChart = [];
+        relevantTransits = [];
+      }
     }
 
     // 4. Prepare chart for interpretation

@@ -41,12 +41,16 @@ function degreeToSign(deg) {
  * @param {Object} chartData - must include planets array and houses array
  * @returns {Array} transit objects with detailed information
  */
-async function getLiveTransits(chartData) {
+function getLiveTransits(chartData) {
   if (!chartData || !Array.isArray(chartData.planets)) {
     throw new Error('Missing natal chart data (chartData.planets)');
   }
 
+  console.log('🔮 Getting live transits for chart with', chartData.planets.length, 'planets');
+
   const jdNow = getTodayJulianDay();
+  console.log('📅 Current Julian Day:', jdNow);
+  
   const flag = swisseph.SEFLG_SWIEPH | swisseph.SEFLG_SPEED;
 
   // Major aspect configurations with orbs
@@ -65,24 +69,33 @@ async function getLiveTransits(chartData) {
   // Calculate current positions for all planets
   const transitData = [];
   
-  // Standard planets to track
+  // Define planet IDs directly to avoid constant issues
   const transitPlanets = [
-    { name: 'SUN', id: swisseph.SE_SUN },
-    { name: 'MOON', id: swisseph.SE_MOON },
-    { name: 'MERCURY', id: swisseph.SE_MERCURY },
-    { name: 'VENUS', id: swisseph.SE_VENUS },
-    { name: 'MARS', id: swisseph.SE_MARS },
-    { name: 'JUPITER', id: swisseph.SE_JUPITER },
-    { name: 'SATURN', id: swisseph.SE_SATURN },
-    { name: 'URANUS', id: swisseph.SE_URANUS },
-    { name: 'NEPTUNE', id: swisseph.SE_NEPTUNE },
-    { name: 'PLUTO', id: swisseph.SE_PLUTO }
+    { name: 'SUN', id: 0 },        // SE_SUN
+    { name: 'MOON', id: 1 },       // SE_MOON
+    { name: 'MERCURY', id: 2 },    // SE_MERCURY
+    { name: 'VENUS', id: 3 },      // SE_VENUS
+    { name: 'MARS', id: 4 },       // SE_MARS
+    { name: 'JUPITER', id: 5 },    // SE_JUPITER
+    { name: 'SATURN', id: 6 },     // SE_SATURN
+    { name: 'URANUS', id: 7 },     // SE_URANUS
+    { name: 'NEPTUNE', id: 8 },    // SE_NEPTUNE
+    { name: 'PLUTO', id: 9 }       // SE_PLUTO
   ];
 
   for (const planet of transitPlanets) {
     try {
+      console.log(`📊 Calculating transit for ${planet.name} (ID: ${planet.id})`);
+      
       const result = swisseph.swe_calc_ut(jdNow, planet.id, flag);
-      const { longitude, longitudeSpeed } = result;
+      
+      if (!result || typeof result.longitude === 'undefined') {
+        console.warn(`⚠️ No result for ${planet.name}`);
+        continue;
+      }
+      
+      const longitude = result.longitude;
+      const longitudeSpeed = result.longitudeSpeed || result.speed || 0;
       const retrograde = longitudeSpeed < 0;
       
       // Find which house the transiting planet is currently in
@@ -93,6 +106,11 @@ async function getLiveTransits(chartData) {
       const aspects = [];
       
       chartData.planets.forEach(natalPlanet => {
+        if (!natalPlanet.longitude && natalPlanet.longitude !== 0) {
+          console.warn(`⚠️ Natal planet ${natalPlanet.name} has no longitude`);
+          return;
+        }
+        
         let diff = Math.abs((longitude - natalPlanet.longitude + 360) % 360);
         if (diff > 180) diff = 360 - diff;
         
@@ -131,11 +149,16 @@ async function getLiveTransits(chartData) {
         degree: Math.floor(longitude % 30),
         minutes: Math.floor(((longitude % 30) % 1) * 60)
       });
+      
+      console.log(`✅ ${planet.name} transit calculated: ${currentSign} ${Math.floor(longitude % 30)}°`);
+      
     } catch (err) {
-      console.warn(`Failed to calculate transit for ${planet.name}:`, err);
+      console.error(`❌ Failed to calculate transit for ${planet.name}:`, err.message);
+      // Continue with other planets instead of failing completely
     }
   }
 
+  console.log(`🎯 Total transits calculated: ${transitData.length}`);
   return transitData;
 }
 
@@ -154,7 +177,7 @@ function isApplying(transitLon, natalLon, transitSpeed, aspectAngle) {
 
 // Helper: get the ruler of a house based on the sign on its cusp
 function getHouseRuler(houseNum, chartData) {
-  if (!houseNum || !chartData.houses) return null;
+  if (!houseNum || !chartData.houses || !chartData.houses[houseNum - 1]) return null;
   
   const houseCusp = chartData.houses[houseNum - 1];
   const sign = degreeToSign(houseCusp);
@@ -215,6 +238,23 @@ function filterRelevantTransits(allTransits, question, chartData) {
     'SUN': ['self', 'vitality', 'identity', 'vitalité', 'الذات', 'الحيوية'],
     'MOON': ['emotions', 'home', 'family', 'émotions', 'maison', 'العواطف', 'البيت']
   };
+  
+  // For general time period questions (rest of June, this month, etc.)
+  if (questionLower.includes('june') || questionLower.includes('month') || 
+      questionLower.includes('rest of') || questionLower.includes('looking for') ||
+      questionLower.includes('juin') || questionLower.includes('mois')) {
+    // Return all transits with aspects, prioritizing major aspects
+    return allTransits
+      .filter(t => t.aspects.length > 0)
+      .sort((a, b) => {
+        // Prioritize slower-moving planets for period overviews
+        const planetOrder = ['PLUTO', 'NEPTUNE', 'URANUS', 'SATURN', 'JUPITER', 'MARS', 'SUN', 'VENUS', 'MERCURY', 'MOON'];
+        const aIndex = planetOrder.indexOf(a.name);
+        const bIndex = planetOrder.indexOf(b.name);
+        return aIndex - bIndex;
+      })
+      .slice(0, 7); // Top 7 transits for period overview
+  }
   
   // Score each transit based on relevance
   const scoredTransits = allTransits.map(transit => {

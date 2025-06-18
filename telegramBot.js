@@ -672,31 +672,42 @@ function formatTransitChart(transits, language) {
       ? '❓ Aucune donnée de transit disponible pour le moment.'
       : '❓ No transit data available.';
   }
+  
   const lines = [];
   const title =
     language === 'Arabic'
       ? '📊 خريطة العبور الحالية'
       : language === 'French'
       ? '📊 Carte des transits actuels'
-      : '📊 Transit Chart:';
+      : '📊 Current Transits:';
   lines.push(title);
+  
   transits.forEach(t => {
-    const det = degreeToSignDetails(t.currentLongitude, language);
-    const retro =
-      t.retrograde
-        ? language === 'Arabic'
-          ? ' (رجعي)'
-          : ' (R)'
-        : '';
-    const signName = det.signName;
-    lines.push(
-      `• ${t.name}: \`${signName} ${det.degree}°${det.minutes}′${retro}\``
-    );
+    // Safety check for transit object properties
+    if (!t || typeof t.currentLongitude !== 'number' || !t.name) {
+      console.log('⚠️ Invalid transit object:', t);
+      return;
+    }
+    
+    try {
+      const det = degreeToSignDetails(t.currentLongitude, language);
+      const retro =
+        t.retrograde
+          ? language === 'Arabic'
+            ? ' (رجعي)'
+            : ' (R)'
+          : '';
+      const signName = det.signName;
+      lines.push(
+        `• ${t.name}: \`${signName} ${det.degree}°${det.minutes}′${retro}\``
+      );
+    } catch (err) {
+      console.error('Error formatting transit:', t, err);
+    }
   });
+  
   return lines.join('\n');
 }
-
-module.exports = bot;
 
 // Catch-all handler for follow-up interpretation questions
 bot.on('message', async (msg) => {
@@ -718,21 +729,26 @@ bot.on('message', async (msg) => {
     await bot.sendChatAction(chatId, 'typing');
     const resp = await axios.post(`${SERVICE_URL}/interpret`, payload);
     const { answer, natalChart, transitChart } = resp.data;
-    // Send a nicely formatted transit chart
-    const transitMsg = formatTransitChart(transitChart, state.language || 'English');
-    await bot.sendMessage(chatId, transitMsg, {
-      parse_mode: 'Markdown',
-      reply_to_message_id: msg.message_id
-    });
-    // You can also print the natal chart if desired:
-    // await bot.sendMessage(
-    //   chatId,
-    //   `📊 Natal Chart:\n<pre>${JSON.stringify(natalChart, null, 2)}</pre>`,
-    //   { parse_mode: 'HTML' }
-    // );
-    return bot.sendMessage(chatId, answer, { reply_to_message_id: msg.message_id });
+    
+    // Send transit chart if available
+    if (transitChart && Array.isArray(transitChart) && transitChart.length > 0) {
+      const transitMsg = formatTransitChart(transitChart, state.language || 'English');
+      await bot.sendMessage(chatId, transitMsg, {
+        parse_mode: 'Markdown',
+        reply_to_message_id: msg.message_id
+      });
+    }
+    
+    // Send the interpretation answer
+    if (answer) {
+      return bot.sendMessage(chatId, answer, { reply_to_message_id: msg.message_id });
+    } else {
+      return bot.sendMessage(chatId, '❓ No interpretation available.', { reply_to_message_id: msg.message_id });
+    }
   } catch (err) {
     console.error('Interpretation error:', err);
     return bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
   }
 });
+
+module.exports = bot;
