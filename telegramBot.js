@@ -22,6 +22,7 @@ try {
 
 const { getLatestChart } = require('./utils/firestore');
 
+
 // Helper to convert a degree to sign name and degrees/minutes
 function degreeToSignDetails(deg, language) {
   // Sign names in English and Arabic (MSA)
@@ -746,20 +747,8 @@ bot.on('message', async (msg) => {
     state.conversationHistory = [];
   }
   
-  // Check if the question is about a specific aspect number and enhance naturally
-  const aspectMatch = text.match(/aspect\s*#?(\d+)/i);
+  // Let the LLM handle context naturally through conversation history
   let enhancedQuestion = text;
-  
-  if (aspectMatch && state.lastAspects) {
-    const aspectNumber = parseInt(aspectMatch[1]);
-    const aspectIndex = aspectNumber - 1; // Convert to 0-based index
-    
-    if (aspectIndex >= 0 && aspectIndex < state.lastAspects.length) {
-      const specificAspect = state.lastAspects[aspectIndex];
-      enhancedQuestion = `${text} (I'm referring to the ${specificAspect.planet1} ${specificAspect.type} ${specificAspect.planet2} aspect with ${specificAspect.orb}° orb)`;
-      console.log('🎯 Enhanced question with aspect context:', enhancedQuestion);
-    }
-  }
   
   const payload = {
     userId: platformKey,
@@ -817,6 +806,8 @@ bot.on('message', async (msg) => {
         content: answer,
         timestamp: new Date()
       });
+      
+      // LLM should understand context naturally through conversation history
       
       // Keep only last 6 exchanges to avoid context bloat (more conservative)
       if (state.conversationHistory.length > 12) { // 6 user + 6 assistant messages
