@@ -513,11 +513,13 @@ bot.on('message', async (msg) => {
         );
       }
 
+      // Send chart summary immediately while interpretation is being calculated
       await bot.sendMessage(
         chatId,
         formatChartSummary(chartRes.data, state.language),
         { parse_mode: 'Markdown' }
       );
+      
       // Save in-memory for follow-ups and conversation history
       state.lastChart = chartRes.data;
       state.conversationHistory = []; // Initialize conversation memory
@@ -530,17 +532,39 @@ bot.on('message', async (msg) => {
         console.log('💾 Stored', allAspects.length, 'aspects for follow-up questions');
       }
 
-      // Send "please wait" message before interpretation
+      // Send "please wait" message before interpretation and start interpretation in parallel
       await bot.sendMessage(chatId, translations[state.language].chartReady);
 
       await bot.sendChatAction(chatId, 'typing');
       try {
+        // Initialize conversation history for natal chart interpretation
+        if (!state.conversationHistory) {
+          state.conversationHistory = [];
+        }
+        
         const interpResp = await axios.post(`${SERVICE_URL}/interpret`, {
           userId: platformKey,
           question: 'Please provide a spiritual interpretation of my natal chart.',
-          dialect: state.language === 'Arabic' ? 'MSA' : state.language
+          dialect: state.language === 'Arabic' ? 'MSA' : state.language,
+          conversationHistory: state.conversationHistory
         });
         const fullText = interpResp.data.answer || '';
+        
+        // Save the natal chart interpretation to conversation history
+        state.conversationHistory.push({
+          role: 'user',
+          content: 'Please provide a spiritual interpretation of my natal chart.',
+          timestamp: new Date()
+        });
+        
+        state.conversationHistory.push({
+          role: 'assistant',
+          content: fullText,
+          timestamp: new Date()
+        });
+        
+        console.log('💾 Saved natal chart interpretation to conversation history');
+        
         let idx = 0, maxLen = 4000;
         while (idx < fullText.length) {
           let endIdx = Math.min(idx + maxLen, fullText.length);

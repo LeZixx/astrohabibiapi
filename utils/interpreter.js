@@ -433,6 +433,10 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
   messages.push(userMsg);
   
   console.log(`💬 Sending ${messages.length} messages to LLM (including ${conversationHistory?.length || 0} history items)`);
+  console.log('🔍 Message structure:');
+  messages.forEach((msg, i) => {
+    console.log(`  ${i}: ${msg.role} - ${msg.content.substring(0, 100)}...`);
+  });
   
   // Calculate approximate token count to prevent overload
   const totalContent = messages.map(m => m.content).join(' ');
