@@ -239,25 +239,36 @@ function filterRelevantTransits(allTransits, question, chartData) {
     'MOON': ['emotions', 'home', 'family', 'émotions', 'maison', 'العواطف', 'البيت']
   };
   
-  // For general time period questions (rest of June, this month, etc.)
-  if (questionLower.includes('june') || questionLower.includes('month') || 
-      questionLower.includes('rest of') || questionLower.includes('looking for') ||
-      questionLower.includes('juin') || questionLower.includes('mois')) {
-    // Return all transits with aspects, prioritizing major aspects
-    return allTransits
-      .filter(t => t.aspects.length > 0)
+  // First filter: Only major aspects with tight orbs (≤3°) for ALL planets/stars/asteroids  
+  const majorAspectTransits = allTransits.filter(transit => {
+    return transit.aspects.some(aspect => {
+      const isMajorAspect = ['Conjunction', 'Square', 'Opposition', 'Trine', 'Sextile'].includes(aspect.type);
+      const isTightOrb = parseFloat(aspect.orb) <= 3.0;
+      return isMajorAspect && isTightOrb;
+    });
+  });
+  
+  console.log(`🎯 Filtered to ${majorAspectTransits.length} transits with major aspects (≤3° orb) from ${allTransits.length} total`);
+  
+  // For general time period questions, return more transits but still filtered by orb/aspect
+  if (questionLower.includes('june') || questionLower.includes('july') || questionLower.includes('month') || 
+      questionLower.includes('rest of') || questionLower.includes('looking') || questionLower.includes('launch') ||
+      questionLower.includes('juin') || questionLower.includes('juillet') || questionLower.includes('mois') ||
+      questionLower.includes('2025') || questionLower.includes('2026')) {
+    
+    // Return all major aspect transits sorted by significance
+    return majorAspectTransits
       .sort((a, b) => {
-        // Prioritize slower-moving planets for period overviews
-        const planetOrder = ['PLUTO', 'NEPTUNE', 'URANUS', 'SATURN', 'JUPITER', 'MARS', 'SUN', 'VENUS', 'MERCURY', 'MOON'];
-        const aIndex = planetOrder.indexOf(a.name);
-        const bIndex = planetOrder.indexOf(b.name);
-        return aIndex - bIndex;
+        // Sort by tightest orb first
+        const aTightestOrb = Math.min(...a.aspects.map(asp => parseFloat(asp.orb)));
+        const bTightestOrb = Math.min(...b.aspects.map(asp => parseFloat(asp.orb)));
+        return aTightestOrb - bTightestOrb;
       })
-      .slice(0, 7); // Top 7 transits for period overview
+      .slice(0, 10); // More transits for period overview
   }
   
-  // Score each transit based on relevance
-  const scoredTransits = allTransits.map(transit => {
+  // Score each filtered transit based on relevance
+  const scoredTransits = majorAspectTransits.map(transit => {
     let score = 0;
     
     // Check if planet keywords match question
@@ -275,8 +286,13 @@ function filterRelevantTransits(allTransits, question, chartData) {
       }
     }
     
-    // Check aspects to relevant houses
+    // Check aspects to relevant houses (only major aspects with tight orbs)
     transit.aspects.forEach(aspect => {
+      const isMajorAspect = ['Conjunction', 'Square', 'Opposition', 'Trine', 'Sextile'].includes(aspect.type);
+      const isTightOrb = parseFloat(aspect.orb) <= 3.0;
+      
+      if (!isMajorAspect || !isTightOrb) return; // Skip non-major or wide aspects
+      
       for (const [house, keywords] of Object.entries(houseKeywords)) {
         if (parseInt(house) === aspect.natalHouse) {
           keywords.forEach(keyword => {
@@ -285,13 +301,22 @@ function filterRelevantTransits(allTransits, question, chartData) {
         }
       }
       
+      // Score based on orb tightness (tighter = higher score)
+      const orbScore = (3.0 - parseFloat(aspect.orb)) / 3.0; // 0-1 score
+      score += orbScore;
+      
       // Prioritize applying aspects
       if (aspect.applying) score += 1;
       
-      // Prioritize major aspects
-      if (['Conjunction', 'Square', 'Opposition', 'Trine'].includes(aspect.type)) {
-        score += 1;
-      }
+      // Score by aspect intensity
+      const aspectScores = {
+        'Conjunction': 2.0,
+        'Opposition': 1.8, 
+        'Square': 1.6,
+        'Trine': 1.4,
+        'Sextile': 1.2
+      };
+      score += aspectScores[aspect.type] || 0;
     });
     
     return { ...transit, relevanceScore: score };
@@ -299,23 +324,15 @@ function filterRelevantTransits(allTransits, question, chartData) {
   
   // Sort by relevance and return top transits
   const relevant = scoredTransits
-    .filter(t => t.relevanceScore > 0)
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, 5); // Top 5 most relevant
+    .slice(0, 8); // Top 8 most relevant
   
-  // If no relevant transits found, return transits to important houses
+  console.log(`📊 Returning ${relevant.length} most relevant transits for interpretation`);
+  
+  // If no major aspect transits found, return empty (let LLM know no significant transits)
   if (relevant.length === 0) {
-    // For travel questions, focus on 3rd, 4th, 9th houses
-    if (questionLower.includes('travel') || questionLower.includes('voyage') || 
-        questionLower.includes('pays') || questionLower.includes('السفر')) {
-      return allTransits.filter(t => 
-        [3, 4, 9].includes(t.currentHouse) || 
-        t.aspects.some(a => [3, 4, 9].includes(a.natalHouse))
-      );
-    }
-    
-    // Return transits with any aspects
-    return allTransits.filter(t => t.aspects.length > 0).slice(0, 3);
+    console.log('⚠️ No major aspects with tight orbs found');
+    return [];
   }
   
   return relevant;

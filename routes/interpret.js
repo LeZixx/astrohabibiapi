@@ -6,7 +6,7 @@ const interpreter = require('../utils/interpreter');
 
 // helper: decide if this question implies a transit-related query
 function needsTransit(question) {
-  const re = /\b(next|tomorrow|today|week|month|year|when|will|transit|move|affect|impact)\b/i;
+  const re = /\b(next|tomorrow|today|week|month|year|when|will|transit|move|affect|impact|july|august|september|october|november|december|january|february|march|april|may|june|2025|2026|2027|looking|launch|start|begin|future|upcoming|coming)\b/i;
   return re.test(question);
 }
 
@@ -42,8 +42,9 @@ router.post('/', async (req, res) => {
       console.log(`  - ${samplePlanet.name}: ${samplePlanet.sign} (House ${samplePlanet.house})`);
     }
 
-    // decide if we should compute transits
-    const transitNeeded = needsTransit(question);
+    // Always calculate transits for complete analysis
+    const transitNeeded = true;
+    console.log('🔍 Always calculating transits for question:', question);
     let transitChart = [];
     let relevantTransits = [];
 
