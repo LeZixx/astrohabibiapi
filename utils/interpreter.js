@@ -170,7 +170,7 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
     const t0 = Date.now();
     
     const systemPrompt = lang.startsWith('en') ? 
-      'You are a professional astrologer. Provide a detailed, structured interpretation following this exact format:\n\n1. ASCENDANT: Explain the rising sign and its significance\n\n2. HOUSES (1-12): For each house, explain:\n- Which sign rules it\n- What life area it represents\n- What this placement means for the native\n\n3. PLANETS: For each planet, explain:\n- Its sign placement\n- Its house placement\n- What this combination means\n\n4. ASPECTS: For each aspect, explain:\n- The nature of the aspect (harmonious/challenging)\n- How these two planets interact\n- The practical implications\n\nBe specific and detailed for each placement.' :
+      'You are a professional astrologer. Provide a comprehensive, detailed interpretation following this exact format:\n\n1. ASCENDANT: Explain the rising sign and its significance\n\n2. PLANETARY PLACEMENTS: For EACH planet individually, provide a detailed explanation:\n- Planet name (e.g., "The Sun in Libra in House 11")\n- What this planet represents (core meaning)\n- What the sign placement means\n- What the house placement means\n- How the sign + house combination works together\n- Practical implications for daily life\n\n3. ASPECTS: For significant aspects, explain:\n- The nature of the aspect (harmonious/challenging)\n- How these planets interact\n- The practical implications\n\n4. SPIRITUAL INSIGHTS: Provide practical spiritual guidance\n\nIMPORTANT: Explain EVERY planet placement in detail. Do not group planets together. Each planet gets its own dedicated explanation.' :
       lang.startsWith('fr') ?
       'Vous êtes un astrologue professionnel. Fournissez une interprétation détaillée et structurée en suivant ce format exact:\n\n1. ASCENDANT: Expliquez le signe ascendant et sa signification\n\n2. MAISONS (1-12): Pour chaque maison, expliquez:\n- Quel signe la gouverne\n- Quel domaine de vie elle représente\n- Ce que ce placement signifie pour le natif\n\n3. PLANÈTES: Pour chaque planète, expliquez:\n- Son placement en signe\n- Son placement en maison\n- Ce que cette combinaison signifie\n\n4. ASPECTS: Pour chaque aspect, expliquez:\n- La nature de l\'aspect (harmonieux/difficile)\n- Comment ces deux planètes interagissent\n- Les implications pratiques\n\nSoyez spécifique et détaillé pour chaque placement.' :
       'أنت منجم محترف. قدم تفسيرًا مفصلاً ومنظمًا باتباع هذا التنسيق بالضبط:\n\n1. الطالع: اشرح الطالع وأهميته\n\n2. البيوت (1-12): لكل بيت، اشرح:\n- أي برج يحكمه\n- أي مجال من مجالات الحياة يمثل\n- ماذا يعني هذا الموضع للمولود\n\n3. الكواكب: لكل كوكب، اشرح:\n- موضعه في البرج\n- موضعه في البيت\n- ماذا يعني هذا المزيج\n\n4. التأثيرات: لكل تأثير، اشرح:\n- طبيعة التأثير (متناغم/صعب)\n- كيف يتفاعل هذان الكوكبان\n- التطبيقات العملية\n\nكن محددًا ومفصلاً لكل موضع.';
@@ -182,7 +182,7 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
       `يرجى تقديم تفسير مفصل لهذه الخريطة الفلكية بالعربية:\n\n${detailedPrompt}`;
     
     const response = await axios.post(SONAR_ENDPOINT, {
-      model: 'llama-3.1-sonar-small-128k-online',
+      model: 'llama-3.1-sonar-large-128k-online',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
