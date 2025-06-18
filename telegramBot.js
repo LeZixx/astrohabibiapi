@@ -761,19 +761,6 @@ bot.on('message', async (msg) => {
     }
   }
   
-  // Add the current question to conversation history
-  state.conversationHistory.push({
-    role: 'user',
-    content: enhancedQuestion,
-    timestamp: new Date()
-  });
-  
-  // Keep only last 6 exchanges to avoid context bloat (more conservative)
-  if (state.conversationHistory.length > 12) { // 6 user + 6 assistant messages
-    state.conversationHistory = state.conversationHistory.slice(-12);
-    console.log('✂️ Trimmed conversation history to last 6 exchanges');
-  }
-  
   const payload = {
     userId: platformKey,
     question: enhancedQuestion,
@@ -818,12 +805,24 @@ bot.on('message', async (msg) => {
     if (answer) {
       console.log('💬 Sending interpretation answer');
       
-      // Save assistant response to conversation history
+      // Add both user question and assistant response to conversation history
+      state.conversationHistory.push({
+        role: 'user',
+        content: enhancedQuestion,
+        timestamp: new Date()
+      });
+      
       state.conversationHistory.push({
         role: 'assistant',
         content: answer,
         timestamp: new Date()
       });
+      
+      // Keep only last 6 exchanges to avoid context bloat (more conservative)
+      if (state.conversationHistory.length > 12) { // 6 user + 6 assistant messages
+        state.conversationHistory = state.conversationHistory.slice(-12);
+        console.log('✂️ Trimmed conversation history to last 6 exchanges');
+      }
       
       // Split message if it's too long for Telegram (4096 char limit)
       const maxLength = 4000; // Leave some buffer

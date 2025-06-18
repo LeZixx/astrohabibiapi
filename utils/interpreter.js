@@ -382,15 +382,31 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
   const messages = [systemMsg];
   
   // Add previous conversation history if available (excluding timestamps)
+  // Ensure proper alternating user/assistant pattern
   if (conversationHistory && conversationHistory.length > 0) {
-    conversationHistory.forEach(msg => {
-      if (msg.role && msg.content) {
-        messages.push({
+    // Filter and validate conversation history
+    const validHistory = conversationHistory.filter(msg => 
+      msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')
+    );
+    
+    // Ensure alternating pattern - remove any consecutive messages from same role
+    const alternatingHistory = [];
+    let lastRole = null;
+    
+    for (const msg of validHistory) {
+      if (msg.role !== lastRole) {
+        alternatingHistory.push({
           role: msg.role,
           content: msg.content
         });
+        lastRole = msg.role;
       }
-    });
+    }
+    
+    // Only add if we have valid alternating history
+    if (alternatingHistory.length > 0) {
+      messages.push(...alternatingHistory);
+    }
   }
   
   // Add current user message

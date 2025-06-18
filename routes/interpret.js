@@ -127,7 +127,7 @@ router.post('/', async (req, res) => {
     console.error('🔍 Error details:', {
       message: err.message,
       stack: err.stack?.split('\n')[0],
-      userId,
+      userId: req.body.userId,
       questionLength: question?.length,
       hasConversationHistory: !!conversationHistory,
       conversationHistoryLength: conversationHistory?.length
