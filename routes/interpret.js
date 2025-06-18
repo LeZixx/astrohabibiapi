@@ -77,6 +77,25 @@ router.post('/', async (req, res) => {
     
     console.log('🔮 Sending to interpreter with dialect:', interpretDialect);
     console.log('📝 Question:', question);
+    console.log('🏠 Chart data being sent to LLM:');
+    console.log('  - Ascendant:', chartForLLM.ascendant);
+    console.log('  - Houses:', chartForLLM.houses);
+    console.log('  - Planets count:', chartForLLM.planets?.length);
+    if (chartForLLM.planets && chartForLLM.planets.length > 0) {
+      console.log('  - Sample planets:');
+      chartForLLM.planets.slice(0, 3).forEach(p => {
+        console.log(`    * ${p.name}: ${p.longitude}° (${p.sign || 'no sign'}) in House ${p.house || 'unknown'}`);
+      });
+    }
+    if (chartForLLM.transits) {
+      console.log('  - Transits count:', chartForLLM.transits.length);
+      if (chartForLLM.transits.length > 0) {
+        console.log('  - Sample transits:');
+        chartForLLM.transits.slice(0, 2).forEach(t => {
+          console.log(`    * ${t.name}: ${t.currentLongitude}° currently in House ${t.currentHouse}`);
+        });
+      }
+    }
     
     const answer = await interpreter.interpretChartQuery(
       chartForLLM,

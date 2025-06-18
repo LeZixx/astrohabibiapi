@@ -182,7 +182,7 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
       `يرجى تقديم تفسير مفصل لهذه الخريطة الفلكية بالعربية:\n\n${detailedPrompt}`;
     
     const response = await axios.post(SONAR_ENDPOINT, {
-      model: 'llama-3.1-sonar-large-128k-online',
+      model: 'llama-3.1-sonar-large-128k-chat',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -348,16 +348,28 @@ async function interpretChartQuery(chartData, question, dialect = chartData.dial
   
   const systemMsg = {
     role: 'system',
-    content: `You are a world-class expert astrologer providing detailed interpretations in ${langLabel}. ${structuredPrompt}${focusedPrompt}\n\nYou must interpret the astrological data EXACTLY as provided - DO NOT make up or assume any placements.`
+    content: `You are a world-class expert astrologer providing detailed interpretations in ${langLabel}. ${structuredPrompt}${focusedPrompt}
+
+CRITICAL INSTRUCTIONS:
+1. You MUST use ONLY the astrological data provided in the user's message
+2. DO NOT use any external astrological knowledge or ephemeris data  
+3. DO NOT make up planetary positions, house placements, or transit dates
+4. DO NOT reference generic astrological events unless they are explicitly provided in the data
+5. If a planet's house position is not provided in the data, say "house position not specified"
+6. If transit dates are not provided in the data, do not mention specific dates
+7. ONLY interpret what is explicitly given to you - nothing else
+8. If you find yourself referencing information not in the provided chart data, STOP and only use what's given
+
+This is absolutely essential - any hallucinated information will be considered a critical error.`
   };
   
   const userMsg = {
     role: 'user',
-    content: `Question: ${question}\n\n${formattedChart}\n\nPlease provide a detailed interpretation addressing the question while explaining each placement individually.`
+    content: `Question: ${question}\n\n${formattedChart}\n\nIMPORTANT: Base your interpretation SOLELY on the chart data provided above. Do not use external astrological knowledge, ephemeris data, or online sources. Only interpret what is explicitly shown in the data provided.\n\nPlease provide a detailed interpretation addressing the question while explaining each placement individually.`
   };
   
   const response = await axios.post(SONAR_ENDPOINT, {
-    model: 'llama-3.1-sonar-large-128k-online',
+    model: 'llama-3.1-sonar-large-128k-chat',
     messages: [systemMsg, userMsg]
   }, {
     headers: {
