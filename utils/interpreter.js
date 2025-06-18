@@ -182,7 +182,7 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
       `يرجى تقديم تفسير مفصل لهذه الخريطة الفلكية بالعربية:\n\n${detailedPrompt}`;
     
     const response = await axios.post(SONAR_ENDPOINT, {
-      model: 'llama-3.1-sonar-large-128k-chat',
+      model: 'llama-3.1-8b-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -369,7 +369,7 @@ This is absolutely essential - any hallucinated information will be considered a
   };
   
   const response = await axios.post(SONAR_ENDPOINT, {
-    model: 'llama-3.1-sonar-large-128k-chat',
+    model: 'llama-3.1-8b-instruct',
     messages: [systemMsg, userMsg]
   }, {
     headers: {
