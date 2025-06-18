@@ -42,9 +42,12 @@ router.post('/', async (req, res) => {
       console.log(`  - ${samplePlanet.name}: ${samplePlanet.sign} (House ${samplePlanet.house})`);
     }
 
-    // Always calculate transits for complete analysis
-    const transitNeeded = true;
-    console.log('🔍 Always calculating transits for question:', question);
+    // Check if this is a pure natal chart interpretation vs a transit question
+    const isPureNatalQuestion = question.toLowerCase().includes('natal chart') || 
+                               question.toLowerCase().includes('spiritual interpretation');
+    
+    const transitNeeded = isPureNatalQuestion ? false : needsTransit(question);
+    console.log('🔍 Question analysis:', { question, isPureNatalQuestion, transitNeeded });
     let transitChart = [];
     let relevantTransits = [];
 
