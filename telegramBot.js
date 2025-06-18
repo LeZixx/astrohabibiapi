@@ -54,6 +54,7 @@ const translations = {
     minutePrompt:  '⏰ اختر دقيقة الميلاد (0-59):',
     placePrompt:   '📍 ممتاز! وأخيراً، أدخل مكان ميلادك (مثال: بيروت، لبنان):',
     calculating:   '🔮 يتم الآن حساب خريطتك الفلكية والقراءة الروحية، يرجى الانتظار...',
+    chartReady:    '✨ تم إنشاء خريطتك الفلكية! الآن سأقوم بإعداد التفسير الروحي المفصل، هذا قد يستغرق دقيقة واحدة...',
     interpretationIntro: '🔮 دعني أضع لك قراءة روحية مختصرة حسب موقع الكواكب والأبراج...',
     backLabel: '⬅️ رجوع',
     unknownTimeLabel: 'غير معروف',
@@ -68,6 +69,7 @@ const translations = {
     minutePrompt:      '⏰ Please choose your birth minute (0-59):',
     placePrompt:       '📍 Great! Finally, enter your birth place (e.g. Beirut, Lebanon):',
     calculating:       '🔮 Calculating your full chart and interpretation, please wait...',
+    chartReady:        '✨ Your natal chart is ready! Now preparing your detailed spiritual interpretation, this may take a minute...',
     interpretationIntro:'🔮 Here’s a spiritual reading based on your planetary positions...',
     backLabel: '⬅️ Back',
     unknownTimeLabel: 'Unknown',
@@ -82,6 +84,7 @@ const translations = {
     minutePrompt: '⏰ Veuillez choisir la minute de naissance (0-59):',
     placePrompt: '📍 Parfait ! Enfin, entrez votre lieu de naissance (ex: Beyrouth, Liban):',
     calculating: '🔮 Calcul de votre carte du ciel et de l\'interprétation spirituelle en cours...',
+    chartReady: '✨ Votre thème natal est prêt ! Préparation de votre interprétation spirituelle détaillée, cela peut prendre une minute...',
     interpretationIntro: '🔮 Voici une lecture spirituelle basée sur vos positions planétaires...',
     backLabel: '⬅️ Retour',
     unknownTimeLabel: 'Inconnu',
@@ -517,6 +520,9 @@ bot.on('message', async (msg) => {
       // Save in-memory for follow-ups
       state.lastChart = chartRes.data;
 
+      // Send "please wait" message before interpretation
+      await bot.sendMessage(chatId, translations[state.language].chartReady);
+
       await bot.sendChatAction(chatId, 'typing');
       try {
         const interpResp = await axios.post(`${SERVICE_URL}/interpret`, {
@@ -733,6 +739,15 @@ bot.on('message', async (msg) => {
 
   try {
     console.log('🔄 Sending request to /interpret endpoint');
+    
+    // Send "please wait" message for follow-up questions
+    const waitMessage = state.language === 'Arabic' 
+      ? '🔮 جاري العمل على إجابة سؤالك، قد يستغرق هذا دقيقة واحدة...'
+      : state.language === 'French'
+      ? '🔮 Traitement de votre question en cours, cela peut prendre une minute...'
+      : '🔮 Working on your question, this may take a minute...';
+    
+    await bot.sendMessage(chatId, waitMessage);
     await bot.sendChatAction(chatId, 'typing');
     const resp = await axios.post(`${SERVICE_URL}/interpret`, payload);
     console.log('✅ Response received from /interpret');
