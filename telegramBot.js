@@ -104,20 +104,35 @@ if (!SERVICE_URL) {
   process.exit(1);
 }
 console.log('🔑 Bot SERVICE_URL=', SERVICE_URL);
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+
+// Create bot without polling - we'll use webhooks
+const bot = new TelegramBot(BOT_TOKEN, { polling: false });
+
+// Set up webhook URL
+const WEBHOOK_URL = `${SERVICE_URL}/bot${BOT_TOKEN}`;
+console.log('🪝 Setting webhook URL:', WEBHOOK_URL);
+
+// Set the webhook
+bot.setWebHook(WEBHOOK_URL).then(() => {
+  console.log('✅ Webhook set successfully');
+}).catch((error) => {
+  console.error('❌ Failed to set webhook:', error);
+});
 
 // Simple state storage (in-memory; replace with DB for production)
 const userState = {};
 
-bot.onText(/\/start/, (msg) => {
+// Handle /start command
+async function handleStartCommand(msg) {
   const chatId = msg.chat.id;
   userState[chatId] = { step: 'language' };
-  bot.sendMessage(chatId, '🌐 Choose your language العربية | English | Français', {
+  await bot.sendMessage(chatId, '🌐 Choose your language العربية | English | Français', {
     reply_markup: { keyboard: [['العربية','English','Français']], one_time_keyboard: true }
   });
-});
+}
 
-bot.on('message', async (msg) => {
+// Handle regular messages
+async function handleMessage(msg) {
   const chatId = msg.chat.id;
   const text = msg.text.trim();
   const state = userState[chatId];
@@ -594,7 +609,11 @@ bot.on('message', async (msg) => {
     }
   } catch (err) {
     console.error('Bot error:', err);
-    bot.sendMessage(chatId, '❌ Oops, something went wrong. Please try again later.');
+    try {
+      bot.sendMessage(chatId, '❌ Oops, something went wrong. Please try again later.');
+    } catch (sendErr) {
+      console.error('Failed to send error message:', sendErr);
+    }
   }
 });
 
@@ -897,4 +916,175 @@ bot.on('message', async (msg) => {
   }
 });
 
-module.exports = bot;
+// Main webhook update handler
+async function handleTelegramUpdate(update) {
+  try {
+    if (update.message) {
+      const msg = update.message;
+      
+      // Handle /start command
+      if (msg.text && msg.text.startsWith('/start')) {
+        await handleStartCommand(msg);
+        return;
+      }
+      
+      // Handle regular messages during chart creation
+      if (msg.text) {
+        await handleMessage(msg);
+        
+        // Also handle follow-up questions
+        await handleFollowUpMessage(msg);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error handling update:', error);
+  }
+}
+
+// Follow-up message handler function (extracted from bot.on)
+async function handleFollowUpMessage(msg) {
+  const chatId = msg.chat.id;
+  const text = msg.text.trim();
+  const state = userState[chatId];
+
+  console.log('🔍 Follow-up message handler triggered for:', text);
+  console.log('📋 User state:', state ? `step: ${state.step}` : 'no state');
+
+  // Only proceed once user has completed birth-chart flow
+  if (!state || state.step !== 'done') {
+    console.log('⏸️ Skipping - user not in done state');
+    return;
+  }
+
+  const platformKey = `telegram-${chatId}`;
+  
+  // Initialize conversation history if not exists
+  if (!state.conversationHistory) {
+    state.conversationHistory = [];
+  }
+  
+  // Let the LLM handle context naturally through conversation history
+  let enhancedQuestion = text;
+  
+  const payload = {
+    userId: platformKey,
+    question: enhancedQuestion,
+    conversationHistory: state.conversationHistory,
+    dialect: state.dialect || 'English'
+  };
+
+  try {
+    console.log('🔄 Sending request to /interpret endpoint');
+    
+    // Send "please wait" message for follow-up questions
+    const waitMessage = state.language === 'Arabic' 
+      ? '🔮 جاري العمل على إجابة سؤالك، قد يستغرق هذا دقيقة واحدة...'
+      : state.language === 'French'
+      ? '🔮 Traitement de votre question en cours, cela peut prendre une minute...'
+      : '🔮 Working on your question, this may take a minute...';
+    
+    await bot.sendMessage(chatId, waitMessage);
+    await bot.sendChatAction(chatId, 'typing');
+    const resp = await axios.post(`${SERVICE_URL}/interpret`, payload);
+    console.log('✅ Response received from /interpret');
+    const { answer, natalChart, transitChart } = resp.data;
+    
+    console.log('📊 Response data:', { 
+      hasAnswer: !!answer, 
+      hasNatalChart: !!natalChart, 
+      hasTransitChart: !!transitChart,
+      transitChartLength: Array.isArray(transitChart) ? transitChart.length : 0
+    });
+    
+    // Send transit chart if available
+    if (transitChart && Array.isArray(transitChart) && transitChart.length > 0) {
+      console.log('📈 Sending transit chart');
+      const transitMsg = formatTransitChart(transitChart, state.language || 'English');
+      await bot.sendMessage(chatId, transitMsg, {
+        parse_mode: 'Markdown',
+        reply_to_message_id: msg.message_id
+      });
+    }
+    
+    // Send the interpretation answer (split if too long)
+    if (answer) {
+      console.log('💬 Sending interpretation answer');
+      
+      // Add both user question and assistant response to conversation history
+      state.conversationHistory.push({
+        role: 'user',
+        content: enhancedQuestion,
+        timestamp: new Date()
+      });
+      
+      state.conversationHistory.push({
+        role: 'assistant',
+        content: answer,
+        timestamp: new Date()
+      });
+      
+      // Keep only last 6 exchanges to avoid context bloat (more conservative)
+      if (state.conversationHistory.length > 12) { // 6 user + 6 assistant messages
+        state.conversationHistory = state.conversationHistory.slice(-12);
+        console.log('✂️ Trimmed conversation history to last 6 exchanges');
+      }
+      
+      // Split message if it's too long for Telegram (4096 char limit)
+      const maxLength = 4000; // Leave some buffer
+      if (answer.length <= maxLength) {
+        return bot.sendMessage(chatId, answer, { reply_to_message_id: msg.message_id });
+      } else {
+        console.log(`📏 Message too long (${answer.length} chars), splitting...`);
+        let startIndex = 0;
+        let messageCount = 0;
+        
+        while (startIndex < answer.length) {
+          let endIndex = Math.min(startIndex + maxLength, answer.length);
+          
+          // Try to break at a natural point (paragraph, sentence, or word)
+          if (endIndex < answer.length) {
+            const slice = answer.slice(startIndex, endIndex);
+            const lastParagraph = slice.lastIndexOf('\n\n');
+            const lastSentence = slice.lastIndexOf('. ');
+            const lastWord = slice.lastIndexOf(' ');
+            
+            if (lastParagraph > startIndex + 500) {
+              endIndex = startIndex + lastParagraph + 2;
+            } else if (lastSentence > startIndex + 500) {
+              endIndex = startIndex + lastSentence + 2;
+            } else if (lastWord > startIndex + 100) {
+              endIndex = startIndex + lastWord;
+            }
+          }
+          
+          const chunk = answer.slice(startIndex, endIndex).trim();
+          
+          try {
+            if (messageCount === 0) {
+              await bot.sendMessage(chatId, chunk, { reply_to_message_id: msg.message_id });
+            } else {
+              await bot.sendMessage(chatId, chunk);
+            }
+            messageCount++;
+            startIndex = endIndex;
+          } catch (sendErr) {
+            console.error('❌ Error sending message chunk:', sendErr.message);
+            break;
+          }
+        }
+        
+        console.log(`✅ Sent ${messageCount} message chunks`);
+        return;
+      }
+    } else {
+      console.log('❓ No answer received');
+      return bot.sendMessage(chatId, '❓ No interpretation available.', { reply_to_message_id: msg.message_id });
+    }
+  } catch (err) {
+    console.error('❌ Interpretation error:', err.message);
+    console.error('📍 Full error:', err);
+    return bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
+  }
+}
+
+module.exports = { bot, handleTelegramUpdate };

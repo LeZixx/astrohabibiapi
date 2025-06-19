@@ -54,5 +54,9 @@ app.use('/natal-chart', natalRoute);
 app.use('/interpret', interpretRoute);
 app.use('/transits', transitsRouter);
 
+// Add Telegram webhook endpoint
+const telegramWebhook = require('./routes/telegramWebhook');
+app.use('/bot' + process.env.TELEGRAM_BOT_TOKEN, telegramWebhook);
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => console.log(`✅ Time API is live on port ${PORT}`));
