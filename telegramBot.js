@@ -462,7 +462,10 @@ async function handleMessage(msg) {
       let geoResults;
       try {
         const geoRes = await axios.get('https://nominatim.openstreetmap.org/search', {
-          params: { q: rawPlaceQuery, format: 'json', limit: 5 }
+          params: { q: rawPlaceQuery, format: 'json', limit: 5 },
+          headers: {
+            'User-Agent': 'AstroHabibi-Bot/1.0 (https://astrohabibi.com; contact@astrohabibi.com)'
+          }
         });
         geoResults = geoRes.data;
       } catch (err) {
