@@ -56,9 +56,13 @@ app.use('/transits', transitsRouter);
 
 // Add Telegram webhook endpoint only if BOT_TOKEN is available
 if (process.env.TELEGRAM_BOT_TOKEN) {
-  const telegramWebhook = require('./routes/telegramWebhook');
-  app.use('/bot' + process.env.TELEGRAM_BOT_TOKEN, telegramWebhook);
-  console.log('🪝 Telegram webhook endpoint registered');
+  try {
+    const telegramWebhook = require('./routes/telegramWebhook');
+    app.use('/bot' + process.env.TELEGRAM_BOT_TOKEN, telegramWebhook);
+    console.log('🪝 Telegram webhook endpoint registered');
+  } catch (error) {
+    console.error('❌ Failed to register Telegram webhook endpoint:', error.message);
+  }
 } else {
   console.warn('⚠️ TELEGRAM_BOT_TOKEN not set - webhook endpoint not registered');
 }
@@ -67,11 +71,15 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", async () => {
   console.log(`✅ Time API is live on port ${PORT}`);
   
-  // Set up Telegram webhook after server starts
-  try {
-    const { setupWebhook } = require('./telegramBot');
-    await setupWebhook();
-  } catch (error) {
-    console.error('⚠️ Could not set up Telegram webhook:', error.message);
+  // Set up Telegram webhook after server starts (async, non-blocking)
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    setTimeout(async () => {
+      try {
+        const { setupWebhook } = require('./telegramBot');
+        await setupWebhook();
+      } catch (error) {
+        console.error('⚠️ Could not set up Telegram webhook:', error.message);
+      }
+    }, 2000); // Delay webhook setup by 2 seconds
   }
 });
