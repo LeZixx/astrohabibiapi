@@ -108,16 +108,18 @@ console.log('🔑 Bot SERVICE_URL=', SERVICE_URL);
 // Create bot without polling - we'll use webhooks
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
-// Set up webhook URL
-const WEBHOOK_URL = `${SERVICE_URL}/bot${BOT_TOKEN}`;
-console.log('🪝 Setting webhook URL:', WEBHOOK_URL);
-
-// Set the webhook
-bot.setWebHook(WEBHOOK_URL).then(() => {
-  console.log('✅ Webhook set successfully');
-}).catch((error) => {
-  console.error('❌ Failed to set webhook:', error);
-});
+// Function to set up webhook (call this after server starts)
+async function setupWebhook() {
+  const WEBHOOK_URL = `${SERVICE_URL}/bot${BOT_TOKEN}`;
+  console.log('🪝 Setting webhook URL:', WEBHOOK_URL);
+  
+  try {
+    await bot.setWebHook(WEBHOOK_URL);
+    console.log('✅ Webhook set successfully');
+  } catch (error) {
+    console.error('❌ Failed to set webhook:', error);
+  }
+}
 
 // Simple state storage (in-memory; replace with DB for production)
 const userState = {};
@@ -1087,4 +1089,4 @@ async function handleFollowUpMessage(msg) {
   }
 }
 
-module.exports = { bot, handleTelegramUpdate };
+module.exports = { bot, handleTelegramUpdate, setupWebhook };
