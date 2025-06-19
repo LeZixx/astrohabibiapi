@@ -48,11 +48,13 @@ app.use((req, res, next) => {
 const fullChartRoute = require("./routes/fullChart");
 const natalRoute = require('./routes/natalChart');
 const transitsRouter = require('./routes/transits');
+const conversationManagementRouter = require('./routes/conversationManagement');
 
 app.use("/full-chart", fullChartRoute);
 app.use('/natal-chart', natalRoute);
 app.use('/interpret', interpretRoute);
 app.use('/transits', transitsRouter);
+app.use('/conversations', conversationManagementRouter);
 
 // Add Telegram webhook endpoint only if BOT_TOKEN is available
 if (process.env.TELEGRAM_BOT_TOKEN) {

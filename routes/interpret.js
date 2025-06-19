@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getLiveTransits, filterRelevantTransits } = require('../utils/transitCalculator');
-const { getLatestChart } = require('../utils/firestore');
+const { getLatestChart, getConversationHistory } = require('../utils/firestore');
 const interpreter = require('../utils/interpreter');
 
 // helper: decide if this question implies a transit-related query
@@ -101,13 +101,25 @@ router.post('/', async (req, res) => {
       }
     }
     
-    console.log('🔍 Conversation history length:', conversationHistory ? conversationHistory.length : 0);
+    // Load persistent conversation history if not provided in request
+    let finalConversationHistory = conversationHistory;
+    if (!conversationHistory || conversationHistory.length === 0) {
+      try {
+        finalConversationHistory = await getConversationHistory(userId, 20, 30);
+        console.log(`💬 Loaded ${finalConversationHistory.length} persistent conversation messages for ${userId}`);
+      } catch (error) {
+        console.error('❌ Failed to load persistent conversation history:', error.message);
+        finalConversationHistory = [];
+      }
+    }
+    
+    console.log('🔍 Final conversation history length:', finalConversationHistory ? finalConversationHistory.length : 0);
     
     const answer = await interpreter.interpretChartQuery(
       chartForLLM,
       question,
       interpretDialect,
-      conversationHistory
+      finalConversationHistory
     );
 
     const responsePayload = { 

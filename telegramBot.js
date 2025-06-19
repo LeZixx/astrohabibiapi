@@ -8,7 +8,7 @@ require('dotenv').config();
 // Firebase admin is already initialized in index.js
 
 
-const { getLatestChart } = require('./utils/firestore');
+const { getLatestChart, saveConversationMessage, getConversationHistory } = require('./utils/firestore');
 
 
 // Helper to convert a degree to sign name and degrees/minutes
@@ -530,9 +530,17 @@ async function handleMessage(msg) {
         { parse_mode: 'Markdown' }
       );
       
-      // Save in-memory for follow-ups and conversation history
+      // Save in-memory for follow-ups and load persistent conversation history
       state.lastChart = chartRes.data;
-      state.conversationHistory = []; // Initialize conversation memory
+      
+      // Load persistent conversation history for this user
+      try {
+        state.conversationHistory = await getConversationHistory(platformKey, 20, 30);
+        console.log(`💬 Loaded ${state.conversationHistory.length} previous messages for user`);
+      } catch (error) {
+        console.error('❌ Failed to load conversation history:', error.message);
+        state.conversationHistory = []; // Fallback to empty history
+      }
       
       // Also store the aspects list for reference in follow-up questions
       if (chartRes.data.planets) {
@@ -560,20 +568,39 @@ async function handleMessage(msg) {
         });
         const fullText = interpResp.data.answer || '';
         
-        // Save the natal chart interpretation to conversation history
-        state.conversationHistory.push({
-          role: 'user',
-          content: 'Please provide a spiritual interpretation of my natal chart.',
-          timestamp: new Date()
-        });
-        
-        state.conversationHistory.push({
-          role: 'assistant',
-          content: fullText,
-          timestamp: new Date()
-        });
-        
-        console.log('💾 Saved natal chart interpretation to conversation history');
+        // Save the natal chart interpretation to persistent conversation history
+        try {
+          await saveConversationMessage(
+            platformKey, 
+            'user', 
+            'Please provide a spiritual interpretation of my natal chart.',
+            { type: 'natal_chart_request', chartId: state.lastChart?.chartId }
+          );
+          
+          await saveConversationMessage(
+            platformKey, 
+            'assistant', 
+            fullText,
+            { type: 'natal_chart_interpretation', chartId: state.lastChart?.chartId }
+          );
+          
+          // Also update in-memory for current session
+          state.conversationHistory.push({
+            role: 'user',
+            content: 'Please provide a spiritual interpretation of my natal chart.',
+            timestamp: new Date()
+          });
+          
+          state.conversationHistory.push({
+            role: 'assistant',
+            content: fullText,
+            timestamp: new Date()
+          });
+          
+          console.log('💾 Saved natal chart interpretation to persistent conversation history');
+        } catch (error) {
+          console.error('❌ Failed to save conversation to Firestore:', error.message);
+        }
         
         let idx = 0, maxLen = 4000;
         while (idx < fullText.length) {
@@ -806,9 +833,15 @@ async function handleFollowUpMessage(msg) {
 
   const platformKey = `telegram-${chatId}`;
   
-  // Initialize conversation history if not exists
+  // Load persistent conversation history if not already loaded
   if (!state.conversationHistory) {
-    state.conversationHistory = [];
+    try {
+      state.conversationHistory = await getConversationHistory(platformKey, 20, 30);
+      console.log(`💬 Loaded ${state.conversationHistory.length} previous messages for follow-up`);
+    } catch (error) {
+      console.error('❌ Failed to load conversation history:', error.message);
+      state.conversationHistory = [];
+    }
   }
   
   // Let the LLM handle context naturally through conversation history
@@ -858,23 +891,44 @@ async function handleFollowUpMessage(msg) {
     if (answer) {
       console.log('💬 Sending interpretation answer');
       
-      // Add both user question and assistant response to conversation history
-      state.conversationHistory.push({
-        role: 'user',
-        content: enhancedQuestion,
-        timestamp: new Date()
-      });
-      
-      state.conversationHistory.push({
-        role: 'assistant',
-        content: answer,
-        timestamp: new Date()
-      });
-      
-      // Keep only last 6 exchanges to avoid context bloat (more conservative)
-      if (state.conversationHistory.length > 12) { // 6 user + 6 assistant messages
-        state.conversationHistory = state.conversationHistory.slice(-12);
-        console.log('✂️ Trimmed conversation history to last 6 exchanges');
+      // Save both user question and assistant response to persistent conversation history
+      try {
+        await saveConversationMessage(
+          platformKey, 
+          'user', 
+          enhancedQuestion,
+          { type: 'follow_up_question' }
+        );
+        
+        await saveConversationMessage(
+          platformKey, 
+          'assistant', 
+          answer,
+          { type: 'follow_up_response', hasTransits: !!(transitChart && transitChart.length > 0) }
+        );
+        
+        // Also update in-memory for current session
+        state.conversationHistory.push({
+          role: 'user',
+          content: enhancedQuestion,
+          timestamp: new Date()
+        });
+        
+        state.conversationHistory.push({
+          role: 'assistant',
+          content: answer,
+          timestamp: new Date()
+        });
+        
+        // Keep only last 6 exchanges in memory to avoid context bloat
+        if (state.conversationHistory.length > 12) { // 6 user + 6 assistant messages
+          state.conversationHistory = state.conversationHistory.slice(-12);
+          console.log('✂️ Trimmed in-memory conversation history to last 6 exchanges');
+        }
+        
+        console.log('💾 Saved follow-up conversation to persistent storage');
+      } catch (error) {
+        console.error('❌ Failed to save follow-up conversation to Firestore:', error.message);
       }
       
       // Split message if it's too long for Telegram (4096 char limit)

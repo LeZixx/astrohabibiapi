@@ -108,4 +108,140 @@ async function logInteraction(userId, type, content) {
   return logRef.id;
 }
 
-module.exports = { saveChart, getLatestChart, logInteraction };
+/**
+ * Save a conversation message to persistent storage
+ * @param {string} userId e.g. "telegram-123456789"
+ * @param {string} role 'user' or 'assistant'
+ * @param {string} content The message content
+ * @param {object} metadata Optional metadata (e.g., question type, chart reference)
+ */
+async function saveConversationMessage(userId, role, content, metadata = {}) {
+  const messageRef = db
+    .collection('users')
+    .doc(userId)
+    .collection('conversations')
+    .doc(); // auto-generated ID
+
+  await messageRef.set({
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    role,
+    content,
+    metadata,
+    createdAt: new Date() // For immediate sorting before server timestamp is set
+  });
+
+  return messageRef.id;
+}
+
+/**
+ * Get conversation history for a user (recent messages first)
+ * @param {string} userId 
+ * @param {number} limit Number of recent messages to retrieve (default: 20)
+ * @param {number} maxAgeDays Only get messages from last N days (default: 30)
+ */
+async function getConversationHistory(userId, limit = 20, maxAgeDays = 30) {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+
+  const snapshot = await db
+    .collection('users')
+    .doc(userId)
+    .collection('conversations')
+    .where('createdAt', '>=', cutoffDate)
+    .orderBy('createdAt', 'desc')
+    .limit(limit)
+    .get();
+
+  if (snapshot.empty) {
+    console.log(`📭 No recent conversation history for user: ${userId}`);
+    return [];
+  }
+
+  // Reverse to get chronological order (oldest first) for LLM context
+  const messages = snapshot.docs.reverse().map(doc => {
+    const data = doc.data();
+    return {
+      role: data.role,
+      content: data.content,
+      timestamp: data.timestamp || data.createdAt,
+      metadata: data.metadata || {}
+    };
+  });
+
+  console.log(`💬 Retrieved ${messages.length} conversation messages for user ${userId}`);
+  return messages;
+}
+
+/**
+ * Clean up old conversation messages to manage storage costs
+ * @param {string} userId 
+ * @param {number} keepDays Number of days to keep (default: 30)
+ */
+async function cleanupOldConversations(userId, keepDays = 30) {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - keepDays);
+
+  const snapshot = await db
+    .collection('users')
+    .doc(userId)
+    .collection('conversations')
+    .where('createdAt', '<', cutoffDate)
+    .get();
+
+  if (snapshot.empty) {
+    return 0;
+  }
+
+  const batch = db.batch();
+  snapshot.docs.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+
+  await batch.commit();
+  console.log(`🧹 Cleaned up ${snapshot.docs.length} old conversation messages for user ${userId}`);
+  return snapshot.docs.length;
+}
+
+/**
+ * Get user's conversation summary/stats
+ * @param {string} userId 
+ */
+async function getConversationStats(userId) {
+  const snapshot = await db
+    .collection('users')
+    .doc(userId)
+    .collection('conversations')
+    .get();
+
+  const stats = {
+    totalMessages: snapshot.size,
+    userMessages: 0,
+    assistantMessages: 0,
+    oldestMessage: null,
+    newestMessage: null
+  };
+
+  if (!snapshot.empty) {
+    const messages = snapshot.docs.map(doc => doc.data());
+    stats.userMessages = messages.filter(m => m.role === 'user').length;
+    stats.assistantMessages = messages.filter(m => m.role === 'assistant').length;
+    
+    const timestamps = messages.map(m => m.createdAt || m.timestamp).filter(Boolean);
+    if (timestamps.length > 0) {
+      stats.oldestMessage = new Date(Math.min(...timestamps.map(t => t.toDate ? t.toDate() : t)));
+      stats.newestMessage = new Date(Math.max(...timestamps.map(t => t.toDate ? t.toDate() : t)));
+    }
+  }
+
+  return stats;
+}
+
+module.exports = { 
+  saveChart, 
+  getLatestChart, 
+  logInteraction,
+  saveConversationMessage,
+  getConversationHistory,
+  cleanupOldConversations,
+  getConversationStats
+};
