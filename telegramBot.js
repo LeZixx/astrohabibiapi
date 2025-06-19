@@ -57,7 +57,7 @@ const translations = {
     yearPrompt:    '📅 اختر سنة ميلادك:',
     hourPrompt:    '⏰ اختر ساعة الميلاد (0-23):',
     minutePrompt:  '⏰ اختر دقيقة الميلاد (0-59):',
-    placePrompt:   '📍 ممتاز! وأخيراً، أدخل مكان ميلادك (مثال: بيروت، لبنان):',
+    placePrompt:   '📍 ممتاز! وأخيراً، أدخل مكان ميلادك (مثال: نيويورك، الولايات المتحدة):',
     calculating:   '🔮 يتم الآن حساب خريطتك الفلكية والقراءة الروحية، يرجى الانتظار...',
     chartReady:    '✨ تم إنشاء خريطتك الفلكية! الآن سأقوم بإعداد التفسير الروحي المفصل، هذا قد يستغرق دقيقة واحدة...',
     interpretationIntro: '🔮 دعني أضع لك قراءة روحية مختصرة حسب موقع الكواكب والأبراج...',
@@ -72,7 +72,7 @@ const translations = {
     yearPrompt:        '📅 Please choose your birth year:',
     hourPrompt:        '⏰ Please choose your birth hour (0-23):',
     minutePrompt:      '⏰ Please choose your birth minute (0-59):',
-    placePrompt:       '📍 Great! Finally, enter your birth place (e.g. Beirut, Lebanon):',
+    placePrompt:       '📍 Great! Finally, enter your birth place (e.g. New York, United States):',
     calculating:       '🔮 Calculating your full chart and interpretation, please wait...',
     chartReady:        '✨ Your natal chart is ready! Now preparing your detailed spiritual interpretation, this may take a minute...',
     interpretationIntro:'🔮 Here’s a spiritual reading based on your planetary positions...',
@@ -87,7 +87,7 @@ const translations = {
     yearPrompt: "📅 Veuillez choisir l'année de naissance:",
     hourPrompt: '⏰ Veuillez choisir l\'heure de naissance (0-23):',
     minutePrompt: '⏰ Veuillez choisir la minute de naissance (0-59):',
-    placePrompt: '📍 Parfait ! Enfin, entrez votre lieu de naissance (ex: Beyrouth, Liban):',
+    placePrompt: '📍 Parfait ! Enfin, entrez votre lieu de naissance (ex: Paris, France):',
     calculating: '🔮 Calcul de votre carte du ciel et de l\'interprétation spirituelle en cours...',
     chartReady: '✨ Votre thème natal est prêt ! Préparation de votre interprétation spirituelle détaillée, cela peut prendre une minute...',
     interpretationIntro: '🔮 Voici une lecture spirituelle basée sur vos positions planétaires...',
@@ -461,10 +461,20 @@ async function handleMessage(msg) {
       const rawPlaceQuery = text;
       let geoResults;
       try {
+        // Map user language to appropriate locale codes for geocoding
+        const languageCode = state.language === 'Arabic' ? 'ar' : 
+                            state.language === 'French' ? 'fr' : 'en';
+        
         const geoRes = await axios.get('https://nominatim.openstreetmap.org/search', {
-          params: { q: rawPlaceQuery, format: 'json', limit: 5 },
+          params: { 
+            q: rawPlaceQuery, 
+            format: 'json', 
+            limit: 5,
+            'accept-language': languageCode
+          },
           headers: {
-            'User-Agent': 'AstroHabibi-Bot/1.0 (https://astrohabibi.com; contact@astrohabibi.com)'
+            'User-Agent': 'AstroHabibi-Bot/1.0 (https://astrohabibi.com; contact@astrohabibi.com)',
+            'Accept-Language': languageCode
           }
         });
         geoResults = geoRes.data;
