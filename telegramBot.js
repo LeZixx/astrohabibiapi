@@ -149,8 +149,167 @@ async function handleStartCommand(msg) {
   const chatId = msg.chat.id;
   userState[chatId] = { step: 'language' };
   await bot.sendMessage(chatId, '🌐 Choose your language العربية | English | Français', {
-    reply_markup: { keyboard: [['العربية','English','Français']], one_time_keyboard: true }
+    reply_markup: { 
+      keyboard: [['العربية','English','Français']], 
+      one_time_keyboard: false,  // Force keyboard to stay
+      resize_keyboard: true
+    }
   });
+}
+
+// Function to validate if input matches expected keyboard options
+function isValidKeyboardInput(text, expectedOptions) {
+  return expectedOptions.includes(text);
+}
+
+// Function to re-send keyboard when user types invalid input
+async function forceKeyboard(chatId, currentStep, language) {
+  const translations = {
+    Arabic: { 
+      invalidInput: '❌ يرجى اختيار أحد الخيارات من لوحة المفاتيح أدناه.',
+      dayPrompt: '📅 اختر يوم ميلادك:',
+      monthPrompt: '📅 اختر شهر ميلادك (1-12):',
+      yearPrompt: '📅 اختر سنة ميلادك:',
+      hourPrompt: '⏰ اختر ساعة الميلاد (0-23):',
+      minutePrompt: '⏰ اختر دقيقة الميلاد (0-59):',
+      backLabel: '⬅️ رجوع',
+      unknownTimeLabel: 'غير معروف'
+    },
+    English: { 
+      invalidInput: '❌ Please choose one of the options from the keyboard below.',
+      dayPrompt: '📅 Please choose your birth day:',
+      monthPrompt: '📅 Please choose your birth month (1-12):',
+      yearPrompt: '📅 Please choose your birth year:',
+      hourPrompt: '⏰ Please choose your birth hour (0-23):',
+      minutePrompt: '⏰ Please choose your birth minute (0-59):',
+      backLabel: '⬅️ Back',
+      unknownTimeLabel: 'Unknown'
+    },
+    French: { 
+      invalidInput: '❌ Veuillez choisir une option du clavier ci-dessous.',
+      dayPrompt: '📅 Veuillez choisir le jour de naissance:',
+      monthPrompt: '📅 Veuillez choisir le mois de naissance (1-12):',
+      yearPrompt: "📅 Veuillez choisir l'année de naissance:",
+      hourPrompt: '⏰ Veuillez choisir l\'heure de naissance (0-23):',
+      minutePrompt: '⏰ Veuillez choisir la minute de naissance (0-59):',
+      backLabel: '⬅️ Retour',
+      unknownTimeLabel: 'Inconnu'
+    }
+  };
+
+  const t = translations[language] || translations.English;
+
+  switch (currentStep) {
+    case 'language':
+      await bot.sendMessage(chatId, '❌ Please choose a language from the keyboard: العربية | English | Français', {
+        reply_markup: { 
+          keyboard: [['العربية','English','Français']], 
+          one_time_keyboard: false,
+          resize_keyboard: true
+        }
+      });
+      break;
+
+    case 'birth-day':
+      await bot.sendMessage(chatId, t.invalidInput + '\n\n' + t.dayPrompt, {
+        reply_markup: {
+          keyboard: [
+            ['1','2','3','4','5','6','7'],
+            ['8','9','10','11','12','13','14'],
+            ['15','16','17','18','19','20','21'],
+            ['22','23','24','25','26','27','28'],
+            ['29','30','31'],
+            [t.backLabel]
+          ],
+          one_time_keyboard: false,
+          resize_keyboard: true
+        }
+      });
+      break;
+
+    case 'birth-month':
+      await bot.sendMessage(chatId, t.invalidInput + '\n\n' + t.monthPrompt, {
+        reply_markup: {
+          keyboard: [
+            ['1','2','3','4'],
+            ['5','6','7','8'],
+            ['9','10','11','12'],
+            [t.backLabel]
+          ],
+          one_time_keyboard: false,
+          resize_keyboard: true
+        }
+      });
+      break;
+
+    case 'birth-year':
+      const years = [];
+      const currentYear = new Date().getFullYear();
+      for (let y = currentYear; y >= 1900; y--) {
+        years.push(y.toString());
+      }
+      const yearRows = [];
+      for (let i = 0; i < years.length; i += 4) {
+        yearRows.push(years.slice(i, i + 4));
+      }
+      yearRows.push([t.backLabel]);
+      
+      await bot.sendMessage(chatId, t.invalidInput + '\n\n' + t.yearPrompt, {
+        reply_markup: { keyboard: yearRows, one_time_keyboard: false, resize_keyboard: true }
+      });
+      break;
+
+    case 'birth-hour':
+      const hourRows = [];
+      for (let start = 0; start < 24; start += 6) {
+        const row = [];
+        for (let h = start; h < start + 6; h++) {
+          row.push(h.toString());
+        }
+        hourRows.push(row);
+      }
+      hourRows.push([t.unknownTimeLabel]);
+      hourRows.push([t.backLabel]);
+      
+      await bot.sendMessage(chatId, t.invalidInput + '\n\n' + t.hourPrompt, {
+        reply_markup: { keyboard: hourRows, one_time_keyboard: false, resize_keyboard: true }
+      });
+      break;
+
+    case 'birth-minute':
+      const minuteRows = [];
+      for (let start = 0; start < 60; start += 10) {
+        const row = [];
+        for (let m = start; m < start + 10; m++) {
+          row.push(m < 10 ? `0${m}` : `${m}`);
+        }
+        minuteRows.push(row);
+      }
+      minuteRows.push([t.unknownTimeLabel]);
+      minuteRows.push([t.backLabel]);
+      
+      await bot.sendMessage(chatId, t.invalidInput + '\n\n' + t.minutePrompt, {
+        reply_markup: { keyboard: minuteRows, one_time_keyboard: false, resize_keyboard: true }
+      });
+      break;
+
+    case 'birth-place-confirm':
+      // For place confirmation, we need to re-send the location options
+      const state = userState[chatId];
+      if (state && state.candidates) {
+        const keyboardRows = state.candidates.map(place => [{ text: place.display_name }]);
+        keyboardRows.push([t.backLabel]);
+        
+        await bot.sendMessage(chatId, t.invalidInput + '\n\n' + translations[language].confirmPlacePrompt, {
+          reply_markup: {
+            keyboard: keyboardRows,
+            one_time_keyboard: false,
+            resize_keyboard: true
+          }
+        });
+      }
+      break;
+  }
 }
 
 // Handle regular messages
@@ -275,6 +434,8 @@ async function handleMessage(msg) {
     }
 
     if (state.step === 'language') {
+      const validLanguages = ['العربية', 'English', 'Français'];
+      
       if (text === 'العربية') {
         state.language = 'Arabic';
         state.dialect = 'MSA';
@@ -289,7 +450,8 @@ async function handleMessage(msg) {
               ['29','30','31'],
               [translations['Arabic'].backLabel]
             ],
-            one_time_keyboard: true
+            one_time_keyboard: false,
+            resize_keyboard: true
           }
         });
       } else if (text === 'English') {
@@ -306,7 +468,8 @@ async function handleMessage(msg) {
               ['29','30','31'],
               [translations[state.language].backLabel]
             ],
-            one_time_keyboard: true
+            one_time_keyboard: false,
+            resize_keyboard: true
           }
         });
       } else if (text === 'Français') {
@@ -323,20 +486,37 @@ async function handleMessage(msg) {
               ['29','30','31'],
               [translations[state.language].backLabel]
             ],
-            one_time_keyboard: true
+            one_time_keyboard: false,
+            resize_keyboard: true
           }
         });
       } else {
-        // If invalid language choice, prompt again
-        bot.sendMessage(chatId, '🌐 Please choose a language from the keyboard: العربية | English | Français', {
-          reply_markup: { keyboard: [['العربية','English','Français']], one_time_keyboard: true }
-        });
-        return;
+        // Invalid input - force keyboard
+        return forceKeyboard(chatId, 'language', null);
       }
     }
 
     // Handle birth day selection
     if (state.step === 'birth-day') {
+      const validDays = Array.from({length: 31}, (_, i) => (i + 1).toString());
+      validDays.push(translations[state.language].backLabel);
+      
+      if (!isValidKeyboardInput(text, validDays)) {
+        return forceKeyboard(chatId, 'birth-day', state.language);
+      }
+      
+      if (text === translations[state.language].backLabel) {
+        // Go back to language selection
+        state.step = 'language';
+        return bot.sendMessage(chatId, '🌐 Choose your language العربية | English | Français', {
+          reply_markup: { 
+            keyboard: [['العربية','English','Français']], 
+            one_time_keyboard: false,
+            resize_keyboard: true
+          }
+        });
+      }
+      
       state.birthDay = text;
       state.step = 'birth-month';
       return bot.sendMessage(chatId, translations[state.language].monthPrompt, {
@@ -347,30 +527,57 @@ async function handleMessage(msg) {
             ['9','10','11','12'],
             [translations[state.language].backLabel]
           ],
-          one_time_keyboard: true
+          one_time_keyboard: false,
+          resize_keyboard: true
         }
       });
     }
 
     // Handle birth month selection
     if (state.step === 'birth-month') {
+      const validMonths = Array.from({length: 12}, (_, i) => (i + 1).toString());
+      validMonths.push(translations[state.language].backLabel);
+      
+      if (!isValidKeyboardInput(text, validMonths)) {
+        return forceKeyboard(chatId, 'birth-month', state.language);
+      }
+      
+      if (text === translations[state.language].backLabel) {
+        // Go back to birth-day
+        state.step = 'birth-day';
+        return bot.sendMessage(chatId, translations[state.language].dayPrompt, {
+          reply_markup: {
+            keyboard: [
+              ['1','2','3','4','5','6','7'],
+              ['8','9','10','11','12','13','14'],
+              ['15','16','17','18','19','20','21'],
+              ['22','23','24','25','26','27','28'],
+              ['29','30','31'],
+              [translations[state.language].backLabel]
+            ],
+            one_time_keyboard: false,
+            resize_keyboard: true
+          }
+        });
+      }
+      
       state.birthMonth = text;
       state.step = 'birth-year';
       const years = [];
       const currentYear = new Date().getFullYear();
-      for (let y = 1900; y <= currentYear; y++) {
+      for (let y = currentYear; y >= 1900; y--) {
         years.push(y.toString());
       }
       const yearRows = [];
-      for (let i = 0; i < years.length; i += 3) {
-        yearRows.push(years.slice(i, i + 3));
+      for (let i = 0; i < years.length; i += 4) {
+        yearRows.push(years.slice(i, i + 4));
       }
       yearRows.push([translations[state.language].backLabel]);
       return bot.sendMessage(chatId, translations[state.language].yearPrompt, {
         reply_markup: {
           keyboard: yearRows,
           resize_keyboard: true,
-          one_time_keyboard: true
+          one_time_keyboard: false
         }
       });
     }
