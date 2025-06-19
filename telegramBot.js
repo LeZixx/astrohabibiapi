@@ -851,8 +851,13 @@ async function handleTelegramUpdate(update) {
         // Only handle as follow-up question if user is in 'done' state
         // (i.e., chart creation is complete)
         const state = userState[msg.chat.id];
+        console.log(`🔍 After handleMessage - User ${msg.chat.id} state: ${state ? state.step : 'no state'}`);
+        
         if (state && state.step === 'done') {
+          console.log(`✅ Processing as follow-up question for user ${msg.chat.id}`);
           await handleFollowUpMessage(msg);
+        } else {
+          console.log(`⏸️ Skipping follow-up handler - user ${msg.chat.id} not in done state`);
         }
       }
     }
