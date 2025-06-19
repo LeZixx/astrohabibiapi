@@ -845,19 +845,21 @@ async function handleTelegramUpdate(update) {
       
       // Handle regular messages during chart creation
       if (msg.text) {
-        // First try to handle as chart creation message
+        // Check state BEFORE processing to determine if this should be a follow-up
+        const stateBefore = userState[msg.chat.id];
+        const wasInDoneState = stateBefore && stateBefore.step === 'done';
+        
+        console.log(`🔍 Before handleMessage - User ${msg.chat.id} state: ${stateBefore ? stateBefore.step : 'no state'}`);
+        
+        // Process the message (might change user state)
         await handleMessage(msg);
         
-        // Only handle as follow-up question if user is in 'done' state
-        // (i.e., chart creation is complete)
-        const state = userState[msg.chat.id];
-        console.log(`🔍 After handleMessage - User ${msg.chat.id} state: ${state ? state.step : 'no state'}`);
-        
-        if (state && state.step === 'done') {
-          console.log(`✅ Processing as follow-up question for user ${msg.chat.id}`);
+        // Only handle as follow-up question if user was ALREADY in 'done' state before this message
+        if (wasInDoneState) {
+          console.log(`✅ Processing as follow-up question for user ${msg.chat.id} (was in done state)`);
           await handleFollowUpMessage(msg);
         } else {
-          console.log(`⏸️ Skipping follow-up handler - user ${msg.chat.id} not in done state`);
+          console.log(`⏸️ Skipping follow-up handler - user ${msg.chat.id} was not in done state before message`);
         }
       }
     }
