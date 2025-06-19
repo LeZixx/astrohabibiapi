@@ -22,6 +22,12 @@ function signDetails(lon) {
   };
 }
 
+function degreeToSign(lon) {
+  const norm = ((lon % 360) + 360) % 360;
+  const idx = Math.floor(norm / 30);
+  return ENGLISH_SIGNS[idx] || 'unknown';
+}
+
 function findHouse(longitude, houses) {
   if (!houses || !Array.isArray(houses)) return null;
   
@@ -480,36 +486,90 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
   const approxTokens = totalContent.length / 4; // Rough estimate: 4 chars per token
   console.log(`📊 Approximate tokens: ${approxTokens}`);
   
-  if (approxTokens > 100000) { // If approaching context limit
-    console.log('⚠️ Context too large, trimming conversation history');
-    // Keep only system message, chart data, and current question
-    const trimmedMessages = [messages[0], messages[messages.length - 1]];
-    messages.splice(0, messages.length, ...trimmedMessages);
+  // Much more aggressive token limiting to avoid 400 errors
+  if (approxTokens > 50000) { // Much lower limit
+    console.log('⚠️ Context too large, trimming conversation history and chart data');
+    // Keep only system message and a minimal version of current question
+    const minimalUserMsg = {
+      role: 'user',
+      content: `${question}\n\nMinimal chart data:\nASCENDANT: ${chartData.ascendant ? degreeToSign(chartData.ascendant) : 'Unknown'}\nPLANETS: ${chartData.planets?.slice(0, 10).map(p => `${p.name} in ${degreeToSign(p.longitude)}`).join(', ')}`
+    };
+    messages.splice(0, messages.length, messages[0], minimalUserMsg);
   }
   
   try {
-    // Validate messages before sending
-    const totalLength = messages.map(m => m.content).join('').length;
-    console.log('🚀 Making Sonar API request with:', {
-      endpoint: SONAR_ENDPOINT,
-      model: 'llama-3.1-sonar-small-128k-online',
-      messageCount: messages.length,
-      hasApiKey: !!SONAR_API_KEY,
-      apiKeyLength: SONAR_API_KEY?.length,
-      totalContentLength: totalLength
-    });
+    // Filter planets to exclude asteroids and fixed stars for initial interpretation
+    const mainPlanets = chartData.planets?.filter(p => !p.type || p.type === 'planet') || [];
     
-    // Check for very long content that might cause 400 errors
-    if (totalLength > 100000) {
-      console.warn('⚠️ Content very long:', totalLength, 'chars - may cause API issues');
+    // Create comprehensive chart data for main planets
+    let chartText = '';
+    
+    // Add ascendant with precise degree/minute
+    if (chartData.ascendant) {
+      const ascDet = signDetails(chartData.ascendant);
+      chartText += `ASCENDANT: ${ENGLISH_SIGNS[ascDet.idx]} ${ascDet.degree}°${ascDet.minutes}′\n\n`;
     }
     
-    // Log sample of content to check for issues
-    console.log('📝 Sample content (first 200 chars):', messages[messages.length - 1]?.content?.substring(0, 200));
+    // Add houses with precise degree/minute
+    if (chartData.houses && Array.isArray(chartData.houses)) {
+      chartText += 'HOUSES:\n';
+      chartData.houses.forEach((h, i) => {
+        const hDet = signDetails(h);
+        chartText += `House ${i + 1}: ${ENGLISH_SIGNS[hDet.idx]} ${hDet.degree}°${hDet.minutes}′\n`;
+      });
+      chartText += '\n';
+    }
+    
+    // Add main planets with precise degree/minute and houses
+    chartText += 'PLANETS:\n';
+    mainPlanets.forEach(p => {
+      const pDet = signDetails(p.longitude);
+      const sign = ENGLISH_SIGNS[pDet.idx];
+      const house = p.house || findHouse(p.longitude, chartData.houses);
+      const retrograde = p.retrograde ? ' (Retrograde)' : '';
+      chartText += `${p.name}: ${sign} ${pDet.degree}°${pDet.minutes}′${house ? ` in House ${house}` : ''}${retrograde}\n`;
+    });
+    
+    // Add major aspects
+    const allAspects = findAllAspects(mainPlanets);
+    if (allAspects.length > 0) {
+      chartText += '\nMAJOR ASPECTS:\n';
+      // Only show tight aspects (orb <= 3°) to keep it concise
+      const tightAspects = allAspects.filter(asp => parseFloat(asp.orb) <= 3);
+      tightAspects.slice(0, 10).forEach(asp => { // Limit to 10 aspects
+        chartText += `${asp.planet1} ${asp.type} ${asp.planet2} (${asp.orb}°)\n`;
+      });
+    }
     
     const response = await axios.post(SONAR_ENDPOINT, {
       model: 'llama-3.1-sonar-small-128k-online',
-      messages: messages
+      messages: [
+        {
+          role: 'system',
+          content: `You are a professional astrologer. Provide a comprehensive natal chart interpretation using this EXACT format:
+
+### Ascendant (Rising Sign)
+**[Sign] [Degree]°[Minutes]′**
+[Explain what the Ascendant represents and how this specific sign manifests]
+
+### Houses
+[For each house 1-12, provide:]
+**House [Number]: [Sign] [Degree]°[Minutes]′** - [Explain what this house represents and how the sign influences it]
+
+### Planets
+[For each planet, use this format:]
+
+#### [Planet Name]
+**[Sign] [Degree]°[Minutes]′ in House [Number]**
+[First sentence: What this planet represents. Second sentence: How the sign placement manifests. Third sentence: How this affects the person.]
+
+Be detailed, specific, and insightful for each placement. Focus on practical implications for the person's life.`
+        },
+        {
+          role: 'user', 
+          content: `Please interpret this natal chart:\n\n${chartText}\n\nProvide detailed insights on personality, emotions, life path, and relationships.`
+        }
+      ]
     }, {
       headers: {
         'Authorization': `Bearer ${SONAR_API_KEY}`,
@@ -517,22 +577,10 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
       }
     });
     
-    console.log('✅ Sonar API response received:', {
-      status: response.status,
-      hasChoices: !!response.data?.choices,
-      choicesLength: response.data?.choices?.length
-    });
-    
     return response.data?.choices?.[0]?.message?.content || 'No interpretation returned.';
   } catch (error) {
-    console.error('🚨 RAW ERROR:', error);
-    console.error('🚨 ERROR TYPE:', typeof error);
-    console.error('🚨 ERROR STRING:', String(error));
-    console.error('🚨 ERROR MESSAGE:', error.message);
-    console.error('🚨 ERROR RESPONSE:', error.response);
-    
-    // Throw the original error to see what's really happening
-    throw error;
+    console.error('API Error:', error.message);
+    throw new Error(`API failed: ${error.message}`);
   }
 }
 
