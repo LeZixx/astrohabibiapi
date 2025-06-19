@@ -112,9 +112,9 @@ console.log('🔑 Bot SERVICE_URL=', SERVICE_URL || 'not set');
 // Standalone: use polling for local testing
 // Via index.js: use webhooks for production
 const isStandalone = require.main === module;
-const bot = new TelegramBot(BOT_TOKEN, { 
-  polling: isStandalone ? true : false 
-});
+const bot = isStandalone 
+  ? new TelegramBot(BOT_TOKEN, { polling: true })
+  : new TelegramBot(BOT_TOKEN);
 
 if (isStandalone) {
   console.log('🔄 Running in standalone mode with polling (for local testing)');
@@ -133,11 +133,31 @@ async function setupWebhook() {
   console.log('🪝 Setting webhook URL:', WEBHOOK_URL);
   
   try {
-    await bot.setWebHook(WEBHOOK_URL);
-    console.log('✅ Webhook set successfully');
+    // First, delete any existing webhook
+    await bot.deleteWebHook();
+    console.log('🗑️ Deleted existing webhook');
+    
+    // Wait a moment before setting new webhook
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Set the new webhook
+    const result = await bot.setWebHook(WEBHOOK_URL);
+    console.log('🪝 Webhook set result:', result);
+    
+    // Verify the webhook was set correctly
+    const webhookInfo = await bot.getWebHookInfo();
+    console.log('🔍 Webhook verification:', webhookInfo);
+    
+    if (webhookInfo.url === WEBHOOK_URL) {
+      console.log('✅ Webhook set and verified successfully');
+    } else {
+      console.error('❌ Webhook verification failed - URL mismatch');
+      console.error('Expected:', WEBHOOK_URL);
+      console.error('Actual:', webhookInfo.url);
+    }
   } catch (error) {
     console.error('❌ Failed to set webhook:', error.message);
-    // Don't throw - just log the error
+    console.error('❌ Full error:', error);
   }
 }
 
@@ -300,7 +320,11 @@ async function forceKeyboard(chatId, currentStep, language) {
         const keyboardRows = state.candidates.map(place => [{ text: place.display_name }]);
         keyboardRows.push([t.backLabel]);
         
-        await bot.sendMessage(chatId, t.invalidInput + '\n\n' + translations[language].confirmPlacePrompt, {
+        const confirmPrompt = language === 'Arabic' ? '📌 اختر أقرب تطابق لبلدتك:' :
+                             language === 'French' ? '📌 Choisissez le lieu correspondant :' :
+                             '📌 Please choose the best match for your birthplace:';
+        
+        await bot.sendMessage(chatId, t.invalidInput + '\n\n' + confirmPrompt, {
           reply_markup: {
             keyboard: keyboardRows,
             one_time_keyboard: false,
@@ -317,7 +341,11 @@ async function handleMessage(msg) {
   const chatId = msg.chat.id;
   const text = msg.text.trim();
   const state = userState[chatId];
-  if (!state) return;
+  
+  // If no state and user isn't sending /start, prompt them to start
+  if (!state) {
+    return bot.sendMessage(chatId, 'Please use /start to begin creating your natal chart! 🌟');
+  }
 
   try {
     // Handle Back button
@@ -338,7 +366,7 @@ async function handleMessage(msg) {
               ['29','30','31'],
               [translations[state.language].backLabel]
             ],
-            one_time_keyboard: true
+            one_time_keyboard: false
           }
         });
       }
@@ -371,7 +399,7 @@ async function handleMessage(msg) {
         }
         yearRows.push([translations[state.language].backLabel]);
         return bot.sendMessage(chatId, translations[state.language].yearPrompt, {
-          reply_markup: { keyboard: yearRows, one_time_keyboard: true }
+          reply_markup: { keyboard: yearRows, one_time_keyboard: false, resize_keyboard: true }
         });
       }
       if (state.step === 'birth-minute') {
@@ -388,7 +416,7 @@ async function handleMessage(msg) {
         hourRows.push([translations[state.language].unknownTimeLabel]);
         hourRows.push([translations[state.language].backLabel]);
         return bot.sendMessage(chatId, translations[state.language].hourPrompt, {
-          reply_markup: { keyboard: hourRows, one_time_keyboard: true }
+          reply_markup: { keyboard: hourRows, one_time_keyboard: false, resize_keyboard: true }
         });
       }
       if (state.step === 'birth-place-text') {
@@ -405,7 +433,7 @@ async function handleMessage(msg) {
         minuteRows.push([translations[state.language].unknownTimeLabel]);
         minuteRows.push([translations[state.language].backLabel]);
         return bot.sendMessage(chatId, translations[state.language].minutePrompt, {
-          reply_markup: { keyboard: minuteRows, one_time_keyboard: true }
+          reply_markup: { keyboard: minuteRows, one_time_keyboard: false, resize_keyboard: true }
         });
       }
     }
@@ -435,6 +463,10 @@ async function handleMessage(msg) {
 
     if (state.step === 'language') {
       const validLanguages = ['العربية', 'English', 'Français'];
+      
+      if (!isValidKeyboardInput(text, validLanguages)) {
+        return forceKeyboard(chatId, 'language', null);
+      }
       
       if (text === 'العربية') {
         state.language = 'Arabic';
@@ -584,7 +616,45 @@ async function handleMessage(msg) {
 
     // Handle birth year selection
     if (state.step === 'birth-year') {
+      const currentYear = new Date().getFullYear();
+      const validYears = [];
+      for (let y = currentYear; y >= 1900; y--) {
+        validYears.push(y.toString());
+      }
+      validYears.push(translations[state.language].backLabel);
+      
+      if (!isValidKeyboardInput(text, validYears)) {
+        return forceKeyboard(chatId, 'birth-year', state.language);
+      }
+      
+      if (text === translations[state.language].backLabel) {
+        // Go back to birth-month
+        state.step = 'birth-month';
+        return bot.sendMessage(chatId, translations[state.language].monthPrompt, {
+          reply_markup: {
+            keyboard: [
+              ['1','2','3','4'],
+              ['5','6','7','8'],
+              ['9','10','11','12'],
+              [translations[state.language].backLabel]
+            ],
+            one_time_keyboard: false,
+            resize_keyboard: true
+          }
+        });
+      }
+      
       state.birthYear = text;
+      
+      // Send important birth time message in user's language
+      const timeImportanceMessage = state.language === 'Arabic' 
+        ? `⚠️ *مهم جداً:* الوقت الدقيق للولادة ضروري لحساب البيوت الفلكية والطالع.\n\n📍 إذا كنت متأكداً من الوقت، اختر الساعة الصحيحة.\n🤷‍♀️ إذا لم تكن متأكداً، اضغط على "غير معروف".\n\nهذا يؤثر بشكل كبير على دقة التفسير الفلكي.`
+        : state.language === 'French'
+        ? `⚠️ *Très important :* L'heure exacte de naissance est cruciale pour calculer les maisons astrologiques et l'ascendant.\n\n📍 Si vous êtes sûr de l'heure, choisissez l'heure correcte.\n🤷‍♀️ Si vous n'êtes pas sûr, cliquez sur "Inconnu".\n\nCela affecte grandement la précision de l'interprétation astrologique.`
+        : `⚠️ *Very Important:* Exact birth time is crucial for calculating astrological houses and ascendant.\n\n📍 If you're certain of the time, select the correct hour.\n🤷‍♀️ If you're uncertain, click "Unknown".\n\nThis greatly affects the accuracy of your astrological interpretation.`;
+      
+      await bot.sendMessage(chatId, timeImportanceMessage, { parse_mode: 'Markdown' });
+      
       state.step = 'birth-hour';
       const hourRows = [];
       for (let start = 0; start < 24; start += 6) {
@@ -597,13 +667,38 @@ async function handleMessage(msg) {
       hourRows.push([translations[state.language].unknownTimeLabel]);
       hourRows.push([translations[state.language].backLabel]);
       return bot.sendMessage(chatId, translations[state.language].hourPrompt, {
-        reply_markup: { keyboard: hourRows, one_time_keyboard: true }
+        reply_markup: { keyboard: hourRows, one_time_keyboard: false, resize_keyboard: true }
       });
     }
 
     // Handle birth hour selection
     if (state.step === 'birth-hour') {
-      // If user selects unknown/back, handled above
+      const validHours = Array.from({length: 24}, (_, i) => i.toString());
+      validHours.push(translations[state.language].unknownTimeLabel);
+      validHours.push(translations[state.language].backLabel);
+      
+      if (!isValidKeyboardInput(text, validHours)) {
+        return forceKeyboard(chatId, 'birth-hour', state.language);
+      }
+      
+      if (text === translations[state.language].backLabel) {
+        // Go back to birth-year
+        state.step = 'birth-year';
+        const years = [];
+        const currentYear = new Date().getFullYear();
+        for (let y = currentYear; y >= 1900; y--) {
+          years.push(y.toString());
+        }
+        const yearRows = [];
+        for (let i = 0; i < years.length; i += 4) {
+          yearRows.push(years.slice(i, i + 4));
+        }
+        yearRows.push([translations[state.language].backLabel]);
+        return bot.sendMessage(chatId, translations[state.language].yearPrompt, {
+          reply_markup: { keyboard: yearRows, one_time_keyboard: false, resize_keyboard: true }
+        });
+      }
+      
       state.birthHour = text;
       state.step = 'birth-minute';
       const minuteRows = [];
@@ -619,14 +714,43 @@ async function handleMessage(msg) {
       return bot.sendMessage(chatId, translations[state.language].minutePrompt, {
         reply_markup: {
           keyboard: minuteRows,
-          one_time_keyboard: true
+          one_time_keyboard: false,
+          resize_keyboard: true
         }
       });
     }
 
     // Handle birth minute selection
     if (state.step === 'birth-minute') {
-      // If user selects unknown/back, handled above
+      const validMinutes = [];
+      for (let m = 0; m < 60; m++) {
+        validMinutes.push(m < 10 ? `0${m}` : `${m}`);
+      }
+      validMinutes.push(translations[state.language].unknownTimeLabel);
+      validMinutes.push(translations[state.language].backLabel);
+      
+      if (!isValidKeyboardInput(text, validMinutes)) {
+        return forceKeyboard(chatId, 'birth-minute', state.language);
+      }
+      
+      if (text === translations[state.language].backLabel) {
+        // Go back to birth-hour
+        state.step = 'birth-hour';
+        const hourRows = [];
+        for (let start = 0; start < 24; start += 6) {
+          const row = [];
+          for (let h = start; h < start + 6; h++) {
+            row.push(h.toString());
+          }
+          hourRows.push(row);
+        }
+        hourRows.push([translations[state.language].unknownTimeLabel]);
+        hourRows.push([translations[state.language].backLabel]);
+        return bot.sendMessage(chatId, translations[state.language].hourPrompt, {
+          reply_markup: { keyboard: hourRows, one_time_keyboard: false, resize_keyboard: true }
+        });
+      }
+      
       state.birthMinute = text;
       // Map numeric month to English month name
       const monthNames = [
@@ -656,7 +780,9 @@ async function handleMessage(msg) {
       // Now ask user to type their birthplace
       state.step = 'birth-place-text';
       const promptText = translations[state.language].placePrompt;
-      return bot.sendMessage(chatId, promptText);
+      return bot.sendMessage(chatId, promptText, {
+        reply_markup: { remove_keyboard: true }
+      });
     }
 
     // Handle free-text birthplace entry
@@ -709,15 +835,16 @@ async function handleMessage(msg) {
       state.candidates = geoResults;
       state.step = 'birth-place-confirm';
 
-      // Build keyboard rows of display_name
+      // Build keyboard rows of display_name with back button
       const keyboardRows = geoResults.map(place => [{ text: place.display_name }]);
+      keyboardRows.push([translations[state.language].backLabel]);
       return bot.sendMessage(
         chatId,
         translations[state.language].confirmPlacePrompt,
         {
           reply_markup: {
             keyboard: keyboardRows,
-            one_time_keyboard: true,
+            one_time_keyboard: false,
             resize_keyboard: true
           }
         }
@@ -726,16 +853,26 @@ async function handleMessage(msg) {
 
     // Handle selection of a geocoded birthplace
     if (state.step === 'birth-place-confirm') {
+      // Build valid options list: all place display names + back button
+      const validPlaceOptions = (state.candidates || []).map(c => c.display_name);
+      validPlaceOptions.push(translations[state.language].backLabel);
+      
+      if (!isValidKeyboardInput(text, validPlaceOptions)) {
+        return forceKeyboard(chatId, 'birth-place-confirm', state.language);
+      }
+      
+      if (text === translations[state.language].backLabel) {
+        // Go back to birth-place-text
+        state.step = 'birth-place-text';
+        return bot.sendMessage(chatId, translations[state.language].placePrompt, {
+          reply_markup: { remove_keyboard: true }
+        });
+      }
+      
       const chosenText = text;
       const found = (state.candidates || []).find(c => c.display_name === chosenText);
       if (!found) {
-        return bot.sendMessage(chatId,
-          state.language === 'Arabic'
-            ? '❌ الرجاء الضغط على أحد الخيارات المعروضة بالأسفل.'
-            : state.language === 'French'
-              ? '❌ Veuillez sélectionner une option ci-dessous.'
-              : '❌ Please choose one of the buttons below.'
-        );
+        return forceKeyboard(chatId, 'birth-place-confirm', state.language);
       }
 
       state.birthLat = parseFloat(found.lat);
@@ -753,7 +890,7 @@ async function handleMessage(msg) {
         latitude:     state.birthLat,
         longitude:    state.birthLon,
         dialect:      state.language === 'Arabic' ? 'MSA' : state.language,
-        withInterpretation: true
+        withInterpretation: false  // Get chart only, no interpretation yet
       };
 
       let chartRes;
@@ -785,8 +922,9 @@ async function handleMessage(msg) {
         state.conversationHistory = await getConversationHistory(platformKey, 20, 30);
         console.log(`💬 Loaded ${state.conversationHistory.length} previous messages for user`);
       } catch (error) {
-        console.error('❌ Failed to load conversation history:', error.message);
+        console.warn('⚠️ Could not load conversation history (likely credentials issue):', error.message);
         state.conversationHistory = []; // Fallback to empty history
+        console.log('📝 Using empty conversation history for this session');
       }
       
       // Also store the aspects list for reference in follow-up questions
@@ -817,18 +955,20 @@ async function handleMessage(msg) {
         
         // Save the natal chart interpretation to persistent conversation history
         try {
+          const chartId = state.lastChart?.chartId || `telegram-${chatId}-${Date.now()}`;
+          
           await saveConversationMessage(
             platformKey, 
             'user', 
             'Please provide a spiritual interpretation of my natal chart.',
-            { type: 'natal_chart_request', chartId: state.lastChart?.chartId }
+            { type: 'natal_chart_request', chartId: chartId }
           );
           
           await saveConversationMessage(
             platformKey, 
             'assistant', 
             fullText,
-            { type: 'natal_chart_interpretation', chartId: state.lastChart?.chartId }
+            { type: 'natal_chart_interpretation', chartId: chartId }
           );
           
           // Also update in-memory for current session
@@ -1056,17 +1196,12 @@ async function handleTelegramUpdate(update) {
         const stateBefore = userState[msg.chat.id];
         const wasInDoneState = stateBefore && stateBefore.step === 'done';
         
-        console.log(`🔍 Before handleMessage - User ${msg.chat.id} state: ${stateBefore ? stateBefore.step : 'no state'}`);
-        
         // Process the message (might change user state)
         await handleMessage(msg);
         
         // Only handle as follow-up question if user was ALREADY in 'done' state before this message
         if (wasInDoneState) {
-          console.log(`✅ Processing as follow-up question for user ${msg.chat.id} (was in done state)`);
           await handleFollowUpMessage(msg);
-        } else {
-          console.log(`⏸️ Skipping follow-up handler - user ${msg.chat.id} was not in done state before message`);
         }
       }
     }
@@ -1252,13 +1387,54 @@ async function handleFollowUpMessage(msg) {
 if (isStandalone) {
   console.log('🔧 Setting up polling-based event handlers for standalone mode');
   
-  bot.onText(/\/start/, handleStartCommand);
+  bot.onText(/\/start/, async (msg) => {
+    try {
+      await handleStartCommand(msg);
+    } catch (error) {
+      console.error('❌ Error in /start handler:', error);
+    }
+  });
   
   bot.on('message', async (msg) => {
-    if (msg.text && !msg.text.startsWith('/start')) {
-      await handleMessage(msg);
-      await handleFollowUpMessage(msg);
+    try {
+      if (msg.text && !msg.text.startsWith('/start')) {
+        // Use the same logic as webhook handler to prevent double processing
+        const stateBefore = userState[msg.chat.id];
+        const wasInDoneState = stateBefore && stateBefore.step === 'done';
+        
+        console.log(`🔍 Before handleMessage - User ${msg.chat.id} state: ${stateBefore ? stateBefore.step : 'no state'}`);
+        
+        // Process the message (might change user state)
+        await handleMessage(msg);
+        
+        // Only handle as follow-up question if user was ALREADY in 'done' state before this message
+        if (wasInDoneState) {
+          console.log(`✅ Processing as follow-up question for user ${msg.chat.id} (was in done state)`);
+          await handleFollowUpMessage(msg);
+        } else {
+          console.log(`⏸️ Skipping follow-up handler - user ${msg.chat.id} was not in done state before message`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error handling message:', error);
+      console.error('❌ Error stack:', error.stack);
+      // Try to send error message to user
+      try {
+        await bot.sendMessage(msg.chat.id, 'Sorry, something went wrong. Please try again or use /start to restart.');
+      } catch (sendError) {
+        console.error('❌ Failed to send error message to user:', sendError);
+      }
     }
+  });
+  
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+  
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
   });
   
   console.log('✅ Standalone bot ready - polling mode active');
