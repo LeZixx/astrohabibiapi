@@ -156,63 +156,21 @@ const interpretChart = async ({ chartData, dialect = 'Modern Standard Arabic' })
     detailedPrompt += '\n';
   }
 
-  // Categorize celestial bodies by type for main chart interpretation too
-  const planets = planetsWithHouses.filter(p => !p.type || p.type === 'planet');
-  const asteroids = planetsWithHouses.filter(p => p.type === 'asteroid');
-  const fixedStars = planetsWithHouses.filter(p => p.type === 'fixed_star');
-  
-  // Traditional Planets
-  if (planets.length > 0) {
-    detailedPrompt += 'PLANETS:\n';
-    planets.forEach(p => {
-      const pDet = signDetails(p.longitude);
-      const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
-                       lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
-                       ARABIC_SIGNS[pDet.idx];
-      const retro = p.retrograde ? ' (Retrograde)' : '';
-      detailedPrompt += `${p.name}: ${signName} ${pDet.degree}°${pDet.minutes}′${retro}`;
-      if (p.house) {
-        detailedPrompt += ` in House ${p.house}`;
-      }
-      detailedPrompt += '\n';
-    });
+  // Planets - one by one with house placements
+  detailedPrompt += 'PLANETS:\n';
+  planetsWithHouses.forEach(p => {
+    const pDet = signDetails(p.longitude);
+    const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
+                     lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
+                     ARABIC_SIGNS[pDet.idx];
+    const retro = p.retrograde ? ' (Retrograde)' : '';
+    detailedPrompt += `${p.name}: ${signName} ${pDet.degree}°${pDet.minutes}′${retro}`;
+    if (p.house) {
+      detailedPrompt += ` in House ${p.house}`;
+    }
     detailedPrompt += '\n';
-  }
-  
-  // Asteroids
-  if (asteroids.length > 0) {
-    detailedPrompt += 'ASTEROIDS:\n';
-    asteroids.forEach(p => {
-      const pDet = signDetails(p.longitude);
-      const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
-                       lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
-                       ARABIC_SIGNS[pDet.idx];
-      const retro = p.retrograde ? ' (Retrograde)' : '';
-      detailedPrompt += `${p.name}: ${signName} ${pDet.degree}°${pDet.minutes}′${retro}`;
-      if (p.house) {
-        detailedPrompt += ` in House ${p.house}`;
-      }
-      detailedPrompt += '\n';
-    });
-    detailedPrompt += '\n';
-  }
-  
-  // Fixed Stars
-  if (fixedStars.length > 0) {
-    detailedPrompt += 'FIXED STARS:\n';
-    fixedStars.forEach(p => {
-      const pDet = signDetails(p.longitude);
-      const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
-                       lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
-                       ARABIC_SIGNS[pDet.idx];
-      detailedPrompt += `${p.name}: ${signName} ${pDet.degree}°${pDet.minutes}′`;
-      if (p.house) {
-        detailedPrompt += ` in House ${p.house}`;
-      }
-      detailedPrompt += '\n';
-    });
-    detailedPrompt += '\n';
-  }
+  });
+  detailedPrompt += '\n';
 
   // Aspects - all aspects with orbs
   const allAspects = findAllAspects(planetsWithPos);
@@ -303,6 +261,25 @@ async function interpretChartQuery(chartData, question, dialect = chartData.dial
   const langLabel = dialect.charAt(0).toUpperCase() + dialect.slice(1);
   const lang = dialect.toLowerCase();
   
+  console.log('🔍 interpretChartQuery input:', {
+    hasChartData: !!chartData,
+    hasQuestion: !!question,
+    planetsCount: chartData?.planets?.length,
+    dialect,
+    conversationHistoryLength: conversationHistory?.length
+  });
+  
+  // Check for problematic data in planets
+  if (chartData?.planets) {
+    try {
+      const testSerialization = JSON.stringify(chartData.planets);
+      console.log('✅ Planets data serializes OK, length:', testSerialization.length);
+    } catch (e) {
+      console.error('❌ Planets data serialization failed:', e.message);
+      throw new Error('Chart data contains non-serializable objects');
+    }
+  }
+  
   // Format the chart data with complete details
   let formattedChart = 'COMPLETE NATAL CHART:\n\n';
   
@@ -328,86 +305,29 @@ async function interpretChartQuery(chartData, question, dialect = chartData.dial
     formattedChart += '\n';
   }
   
-  // Categorize and add celestial bodies by type
+  // Add all planets with their exact positions
   if (chartData.planets && Array.isArray(chartData.planets)) {
-    // Separate planets, asteroids, and fixed stars
-    const planets = chartData.planets.filter(p => !p.type || p.type === 'planet');
-    const asteroids = chartData.planets.filter(p => p.type === 'asteroid');
-    const fixedStars = chartData.planets.filter(p => p.type === 'fixed_star');
-    
-    // Traditional Planets
-    if (planets.length > 0) {
-      formattedChart += 'PLANETS:\n';
-      planets.forEach(p => {
-        const pDet = signDetails(p.longitude);
-        const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
-                         lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
-                         ARABIC_SIGNS[pDet.idx];
-        
-        // Find actual house placement
-        let houseNum = p.house;
-        if (!houseNum && chartData.houses) {
-          houseNum = findHouse(p.longitude, chartData.houses);
-        }
-        
-        const retrograde = p.retrograde ? ' (Retrograde)' : '';
-        formattedChart += `${p.name}: ${signName} ${pDet.degree}°${pDet.minutes}′${retrograde}`;
-        if (houseNum) {
-          formattedChart += ` in House ${houseNum}`;
-        }
-        formattedChart += '\n';
-      });
+    formattedChart += 'PLANETS (complete list):\n';
+    chartData.planets.forEach(p => {
+      const pDet = signDetails(p.longitude);
+      const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
+                       lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
+                       ARABIC_SIGNS[pDet.idx];
+      
+      // Find actual house placement
+      let houseNum = p.house;
+      if (!houseNum && chartData.houses) {
+        houseNum = findHouse(p.longitude, chartData.houses);
+      }
+      
+      const retrograde = p.retrograde ? ' (Retrograde)' : '';
+      formattedChart += `${p.name}: ${signName} ${pDet.degree}°${pDet.minutes}′${retrograde}`;
+      if (houseNum) {
+        formattedChart += ` in House ${houseNum}`;
+      }
       formattedChart += '\n';
-    }
-    
-    // Asteroids (if any)
-    if (asteroids.length > 0) {
-      formattedChart += 'ASTEROIDS:\n';
-      asteroids.forEach(p => {
-        const pDet = signDetails(p.longitude);
-        const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
-                         lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
-                         ARABIC_SIGNS[pDet.idx];
-        
-        // Find actual house placement
-        let houseNum = p.house;
-        if (!houseNum && chartData.houses) {
-          houseNum = findHouse(p.longitude, chartData.houses);
-        }
-        
-        const retrograde = p.retrograde ? ' (Retrograde)' : '';
-        formattedChart += `${p.name}: ${signName} ${pDet.degree}°${pDet.minutes}′${retrograde}`;
-        if (houseNum) {
-          formattedChart += ` in House ${houseNum}`;
-        }
-        formattedChart += '\n';
-      });
-      formattedChart += '\n';
-    }
-    
-    // Fixed Stars (if any)
-    if (fixedStars.length > 0) {
-      formattedChart += 'FIXED STARS:\n';
-      fixedStars.forEach(p => {
-        const pDet = signDetails(p.longitude);
-        const signName = lang.startsWith('en') ? ENGLISH_SIGNS[pDet.idx] :
-                         lang.startsWith('fr') ? FRENCH_SIGNS[pDet.idx] :
-                         ARABIC_SIGNS[pDet.idx];
-        
-        // Find actual house placement
-        let houseNum = p.house;
-        if (!houseNum && chartData.houses) {
-          houseNum = findHouse(p.longitude, chartData.houses);
-        }
-        
-        formattedChart += `${p.name}: ${signName} ${pDet.degree}°${pDet.minutes}′`;
-        if (houseNum) {
-          formattedChart += ` in House ${houseNum}`;
-        }
-        formattedChart += '\n';
-      });
-      formattedChart += '\n';
-    }
+    });
+    formattedChart += '\n';
   }
   
   // Calculate and add ALL aspects
@@ -488,8 +408,6 @@ ASTROLOGICAL FOUNDATION (your "north star"):
 2. All planetary positions, aspects, and calculations must be based on the provided data
 3. DO NOT make up any astrological positions or dates not in the data
 4. If information is missing from the data, acknowledge it naturally in conversation
-5. The chart data is organized into sections: PLANETS (traditional), ASTEROIDS, and FIXED STARS
-6. When asked about asteroids or fixed stars, refer to their specific sections in the provided data
 
 NEVER be rigid or textbook-like. This should feel like a flowing conversation with someone who deeply understands both astrology and human nature - BUT always focused on answering their specific question.`
   };
@@ -570,6 +488,25 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
   }
   
   try {
+    // Validate messages before sending
+    const totalLength = messages.map(m => m.content).join('').length;
+    console.log('🚀 Making Sonar API request with:', {
+      endpoint: SONAR_ENDPOINT,
+      model: 'llama-3.1-sonar-small-128k-online',
+      messageCount: messages.length,
+      hasApiKey: !!SONAR_API_KEY,
+      apiKeyLength: SONAR_API_KEY?.length,
+      totalContentLength: totalLength
+    });
+    
+    // Check for very long content that might cause 400 errors
+    if (totalLength > 100000) {
+      console.warn('⚠️ Content very long:', totalLength, 'chars - may cause API issues');
+    }
+    
+    // Log sample of content to check for issues
+    console.log('📝 Sample content (first 200 chars):', messages[messages.length - 1]?.content?.substring(0, 200));
+    
     const response = await axios.post(SONAR_ENDPOINT, {
       model: 'llama-3.1-sonar-small-128k-online',
       messages: messages
@@ -580,11 +517,22 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
       }
     });
     
+    console.log('✅ Sonar API response received:', {
+      status: response.status,
+      hasChoices: !!response.data?.choices,
+      choicesLength: response.data?.choices?.length
+    });
+    
     return response.data?.choices?.[0]?.message?.content || 'No interpretation returned.';
   } catch (error) {
-    console.error('🚨 LLM API Error:', error.response?.data || error.message);
-    console.error('📋 Request payload size:', JSON.stringify(messages).length, 'characters');
-    throw new Error(`LLM API failed: ${error.response?.data?.error || error.message}`);
+    console.error('🚨 RAW ERROR:', error);
+    console.error('🚨 ERROR TYPE:', typeof error);
+    console.error('🚨 ERROR STRING:', String(error));
+    console.error('🚨 ERROR MESSAGE:', error.message);
+    console.error('🚨 ERROR RESPONSE:', error.response);
+    
+    // Throw the original error to see what's really happening
+    throw error;
   }
 }
 

@@ -30,6 +30,22 @@ router.post('/', async (req, res) => {
     // Extract the stored raw chart data
     const natalChart = latest.rawChartData || latest;
     
+    console.log('🔍 Chart data from Firestore:', {
+      hasRawChartData: !!latest.rawChartData,
+      chartKeys: Object.keys(natalChart || {}),
+      planetsCount: natalChart?.planets?.length,
+      housesCount: natalChart?.houses?.length
+    });
+    
+    // Check if chart data can be serialized
+    try {
+      const testSerialization = JSON.stringify(natalChart);
+      console.log('✅ Chart data serializes OK, size:', testSerialization.length);
+    } catch (e) {
+      console.error('❌ Chart data serialization failed:', e.message);
+      return res.status(500).json({ error: 'Chart data is corrupted' });
+    }
+    
     console.log('📊 Retrieved natal chart from Firestore:');
     console.log(`  - Ascendant: ${natalChart.ascendant}`);
     console.log(`  - Houses: ${natalChart.houses?.length || 0}`);
@@ -140,9 +156,9 @@ router.post('/', async (req, res) => {
       message: err.message,
       stack: err.stack?.split('\n')[0],
       userId: req.body.userId,
-      questionLength: question?.length,
-      hasConversationHistory: !!conversationHistory,
-      conversationHistoryLength: conversationHistory?.length
+      questionLength: req.body.question?.length,
+      hasConversationHistory: !!req.body.conversationHistory,
+      conversationHistoryLength: req.body.conversationHistory?.length
     });
     return res.status(500).json({ 
       error: err.message || 'Failed to interpret chart query.',

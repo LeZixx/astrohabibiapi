@@ -5,21 +5,21 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 require('dotenv').config();
 
-// Initialize Firebase Admin if this is run as main module (standalone)
-// When run through index.js, Firebase is already initialized there
-if (require.main === module) {
-  const admin = require('firebase-admin');
+// Initialize Firebase Admin if not already initialized
+// Check if Firebase is already initialized (when imported by index.js)
+const admin = require('firebase-admin');
+if (!admin.apps.length) {
   try {
     // For local development: load service account key
     const serviceAccount = require('./utils/astrohabibi-firestore-sa-key.json');
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-    console.log('🗄️ Firebase Admin initialized with service account (standalone mode).');
+    console.log('🗄️ Firebase Admin initialized with service account.');
   } catch (err) {
     // In production or if JSON not present, use default credentials
     admin.initializeApp();
-    console.log('🗄️ Firebase Admin initialized with default credentials (standalone mode).');
+    console.log('🗄️ Firebase Admin initialized with default credentials.');
   }
 }
 
@@ -129,7 +129,7 @@ async function setupWebhook() {
     return;
   }
   
-  const WEBHOOK_URL = `${SERVICE_URL}/bot${BOT_TOKEN}`;
+  const WEBHOOK_URL = `${SERVICE_URL}/webhook`;
   console.log('🪝 Setting webhook URL:', WEBHOOK_URL);
   
   try {
@@ -945,11 +945,22 @@ async function handleMessage(msg) {
           state.conversationHistory = [];
         }
         
+        console.log('🔍 Making interpret request with:', {
+          SERVICE_URL,
+          userId: platformKey,
+          dialect: state.language === 'Arabic' ? 'MSA' : state.language
+        });
+        
         const interpResp = await axios.post(`${SERVICE_URL}/interpret`, {
           userId: platformKey,
           question: 'Please provide a spiritual interpretation of my natal chart.',
           dialect: state.language === 'Arabic' ? 'MSA' : state.language,
           conversationHistory: state.conversationHistory
+        });
+        
+        console.log('✅ Interpret response received:', {
+          hasAnswer: !!interpResp.data.answer,
+          answerLength: interpResp.data.answer?.length
         });
         const fullText = interpResp.data.answer || '';
         

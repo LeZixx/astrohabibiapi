@@ -60,8 +60,8 @@ app.use('/conversations', conversationManagementRouter);
 if (process.env.TELEGRAM_BOT_TOKEN) {
   try {
     const telegramWebhook = require('./routes/telegramWebhook');
-    app.use('/bot' + process.env.TELEGRAM_BOT_TOKEN, telegramWebhook);
-    console.log('🪝 Telegram webhook endpoint registered');
+    app.use('/webhook', telegramWebhook);
+    console.log('🪝 Telegram webhook endpoint registered at /webhook');
   } catch (error) {
     console.error('❌ Failed to register Telegram webhook endpoint:', error.message);
   }
