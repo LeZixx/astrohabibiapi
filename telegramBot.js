@@ -845,10 +845,15 @@ async function handleTelegramUpdate(update) {
       
       // Handle regular messages during chart creation
       if (msg.text) {
+        // First try to handle as chart creation message
         await handleMessage(msg);
         
-        // Also handle follow-up questions
-        await handleFollowUpMessage(msg);
+        // Only handle as follow-up question if user is in 'done' state
+        // (i.e., chart creation is complete)
+        const state = userState[msg.chat.id];
+        if (state && state.step === 'done') {
+          await handleFollowUpMessage(msg);
+        }
       }
     }
   } catch (error) {
