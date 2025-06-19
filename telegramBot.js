@@ -5,7 +5,23 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 require('dotenv').config();
 
-// Firebase admin is already initialized in index.js
+// Initialize Firebase Admin if this is run as main module (standalone)
+// When run through index.js, Firebase is already initialized there
+if (require.main === module) {
+  const admin = require('firebase-admin');
+  try {
+    // For local development: load service account key
+    const serviceAccount = require('./utils/astrohabibi-firestore-sa-key.json');
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log('🗄️ Firebase Admin initialized with service account (standalone mode).');
+  } catch (err) {
+    // In production or if JSON not present, use default credentials
+    admin.initializeApp();
+    console.log('🗄️ Firebase Admin initialized with default credentials (standalone mode).');
+  }
+}
 
 
 const { getLatestChart, saveConversationMessage, getConversationHistory } = require('./utils/firestore');
@@ -92,8 +108,19 @@ if (!SERVICE_URL) {
 }
 console.log('🔑 Bot SERVICE_URL=', SERVICE_URL || 'not set');
 
-// Create bot without polling - we'll use webhooks
-const bot = new TelegramBot(BOT_TOKEN, { polling: false });
+// Create bot with appropriate mode based on how it's run
+// Standalone: use polling for local testing
+// Via index.js: use webhooks for production
+const isStandalone = require.main === module;
+const bot = new TelegramBot(BOT_TOKEN, { 
+  polling: isStandalone ? true : false 
+});
+
+if (isStandalone) {
+  console.log('🔄 Running in standalone mode with polling (for local testing)');
+} else {
+  console.log('🪝 Running in webhook mode (via server)');
+}
 
 // Function to set up webhook (call this after server starts)
 async function setupWebhook() {
@@ -987,6 +1014,22 @@ async function handleFollowUpMessage(msg) {
     console.error('📍 Full error:', err);
     return bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
   }
+}
+
+// If running standalone, set up polling-based event handlers
+if (isStandalone) {
+  console.log('🔧 Setting up polling-based event handlers for standalone mode');
+  
+  bot.onText(/\/start/, handleStartCommand);
+  
+  bot.on('message', async (msg) => {
+    if (msg.text && !msg.text.startsWith('/start')) {
+      await handleMessage(msg);
+      await handleFollowUpMessage(msg);
+    }
+  });
+  
+  console.log('✅ Standalone bot ready - polling mode active');
 }
 
 module.exports = { bot, handleTelegramUpdate, setupWebhook };
