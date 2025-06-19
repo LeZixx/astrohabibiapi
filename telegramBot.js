@@ -100,16 +100,20 @@ if (!BOT_TOKEN) {
 }
 const SERVICE_URL = process.env.SERVICE_URL;
 if (!SERVICE_URL) {
-  console.error('❌ SERVICE_URL is not set in environment');
-  process.exit(1);
+  console.warn('⚠️ SERVICE_URL is not set in environment - webhook setup will be skipped');
 }
-console.log('🔑 Bot SERVICE_URL=', SERVICE_URL);
+console.log('🔑 Bot SERVICE_URL=', SERVICE_URL || 'not set');
 
 // Create bot without polling - we'll use webhooks
 const bot = new TelegramBot(BOT_TOKEN, { polling: false });
 
 // Function to set up webhook (call this after server starts)
 async function setupWebhook() {
+  if (!SERVICE_URL) {
+    console.warn('⚠️ Cannot set webhook - SERVICE_URL not configured');
+    return;
+  }
+  
   const WEBHOOK_URL = `${SERVICE_URL}/bot${BOT_TOKEN}`;
   console.log('🪝 Setting webhook URL:', WEBHOOK_URL);
   
@@ -117,7 +121,8 @@ async function setupWebhook() {
     await bot.setWebHook(WEBHOOK_URL);
     console.log('✅ Webhook set successfully');
   } catch (error) {
-    console.error('❌ Failed to set webhook:', error);
+    console.error('❌ Failed to set webhook:', error.message);
+    // Don't throw - just log the error
   }
 }
 

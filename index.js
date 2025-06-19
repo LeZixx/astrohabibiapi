@@ -54,9 +54,14 @@ app.use('/natal-chart', natalRoute);
 app.use('/interpret', interpretRoute);
 app.use('/transits', transitsRouter);
 
-// Add Telegram webhook endpoint
-const telegramWebhook = require('./routes/telegramWebhook');
-app.use('/bot' + process.env.TELEGRAM_BOT_TOKEN, telegramWebhook);
+// Add Telegram webhook endpoint only if BOT_TOKEN is available
+if (process.env.TELEGRAM_BOT_TOKEN) {
+  const telegramWebhook = require('./routes/telegramWebhook');
+  app.use('/bot' + process.env.TELEGRAM_BOT_TOKEN, telegramWebhook);
+  console.log('🪝 Telegram webhook endpoint registered');
+} else {
+  console.warn('⚠️ TELEGRAM_BOT_TOKEN not set - webhook endpoint not registered');
+}
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", async () => {
