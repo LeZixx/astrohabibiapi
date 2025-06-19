@@ -83,7 +83,19 @@ function getLiveTransits(chartData) {
     { name: 'PLUTO', id: 9 }       // SE_PLUTO
   ];
 
-  for (const planet of transitPlanets) {
+  // Add major asteroids to transits (they move fast enough to be relevant)
+  const transitAsteroids = [
+    { name: 'CERES', id: 1 },
+    { name: 'PALLAS', id: 2 },
+    { name: 'JUNO', id: 3 },
+    { name: 'VESTA', id: 4 },
+    { name: 'CHIRON', id: 2060 }  // Chiron is especially important for transits
+  ];
+
+  // Combine planets and asteroids for transit calculations
+  const allTransitBodies = [...transitPlanets, ...transitAsteroids];
+
+  for (const planet of allTransitBodies) {
     try {
       console.log(`📊 Calculating transit for ${planet.name} (ID: ${planet.id})`);
       

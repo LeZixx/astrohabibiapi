@@ -76,7 +76,22 @@ function findAllAspects(planets) {
       if (diff > 180) diff = 360 - diff;
       
       for (const aspectType of aspectTypes) {
-        if (Math.abs(diff - aspectType.angle) <= aspectType.orb) {
+        // Calculate dynamic orb based on planet types
+        let dynamicOrb = aspectType.orb;
+        
+        // Use tighter orbs for fixed stars and asteroids
+        const planet1Type = planets[i].type || 'planet';
+        const planet2Type = planets[j].type || 'planet';
+        
+        if (planet1Type === 'fixed_star' || planet2Type === 'fixed_star') {
+          // Very tight orbs for fixed stars (1-2°)
+          dynamicOrb = Math.min(aspectType.orb, aspectType.angle === 0 ? 1.5 : 1.0);
+        } else if (planet1Type === 'asteroid' || planet2Type === 'asteroid') {
+          // Tight orbs for asteroids (2-3°)
+          dynamicOrb = Math.min(aspectType.orb, aspectType.angle === 0 ? 3.0 : 2.5);
+        }
+        
+        if (Math.abs(diff - aspectType.angle) <= dynamicOrb) {
           const orb = Math.abs(diff - aspectType.angle);
           aspects.push({
             planet1: planets[i].name,
@@ -84,7 +99,10 @@ function findAllAspects(planets) {
             type: aspectType.name,
             angle: aspectType.angle,
             orb: orb.toFixed(2),
-            exact: diff.toFixed(2)
+            exact: diff.toFixed(2),
+            dynamicOrb: dynamicOrb.toFixed(1),
+            involvesStar: planet1Type === 'fixed_star' || planet2Type === 'fixed_star',
+            involvesAsteroid: planet1Type === 'asteroid' || planet2Type === 'asteroid'
           });
           break;
         }

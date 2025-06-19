@@ -1037,19 +1037,40 @@ function formatChartSummary(data, language = 'English') {
       SUN: 'SUN', MOON: 'MOON', MERCURY: 'MERCURY', VENUS: 'VENUS',
       MARS: 'MARS', JUPITER: 'JUPITER', SATURN: 'SATURN',
       URANUS: 'URANUS', NEPTUNE: 'NEPTUNE', PLUTO: 'PLUTO',
-      'NORTH NODE': 'NORTH NODE', LILITH: 'LILTH'
+      'NORTH NODE': 'NORTH NODE', LILITH: 'LILITH',
+      // Asteroids
+      CERES: 'CERES', PALLAS: 'PALLAS', JUNO: 'JUNO', VESTA: 'VESTA',
+      CHIRON: 'CHIRON', EROS: 'EROS', PSYCHE: 'PSYCHE', HYGEIA: 'HYGEIA',
+      // Fixed Stars
+      REGULUS: 'REGULUS', SPICA: 'SPICA', ARCTURUS: 'ARCTURUS',
+      ANTARES: 'ANTARES', VEGA: 'VEGA', SIRIUS: 'SIRIUS',
+      ALDEBARAN: 'ALDEBARAN', BETELGEUSE: 'BETELGEUSE', RIGEL: 'RIGEL', ALGOL: 'ALGOL'
     },
     Arabic: {
       SUN: 'الشمس', MOON: 'القمر', MERCURY: 'عطارد', VENUS: 'الزهرة',
       MARS: 'المريخ', JUPITER: 'المشتري', SATURN: 'زحل',
       URANUS: 'أورانوس', NEPTUNE: 'نبتون', PLUTO: 'بلوتو',
-      'NORTH NODE': 'عقدة الشمال', LILITH: 'ليليث'
+      'NORTH NODE': 'عقدة الشمال', LILITH: 'ليليث',
+      // Asteroids
+      CERES: 'سيريس', PALLAS: 'بالاس', JUNO: 'جونو', VESTA: 'فستا',
+      CHIRON: 'خيرون', EROS: 'إيروس', PSYCHE: 'بسايكي', HYGEIA: 'هيجيا',
+      // Fixed Stars
+      REGULUS: 'ريجولوس', SPICA: 'السنبلة', ARCTURUS: 'ذؤاب الدبران',
+      ANTARES: 'قلب العقرب', VEGA: 'النسر الواقع', SIRIUS: 'الشعرى',
+      ALDEBARAN: 'الدبران', BETELGEUSE: 'منكب الجوزاء', RIGEL: 'الرجل', ALGOL: 'رأس الغول'
     },
     French: {
       SUN: 'SOLEIL', MOON: 'LUNE', MERCURY: 'MERCURE', VENUS: 'VENUS',
       MARS: 'MARS', JUPITER: 'JUPITER', SATURN: 'SATURNE',
       URANUS: 'URANUS', NEPTUNE: 'NEPTUNE', PLUTO: 'PLUTON',
-      'NORTH NODE': 'NŒUD NORD', LILITH: 'LILITH'
+      'NORTH NODE': 'NŒUD NORD', LILITH: 'LILITH',
+      // Asteroids
+      CERES: 'CÉRÈS', PALLAS: 'PALLAS', JUNO: 'JUNON', VESTA: 'VESTA',
+      CHIRON: 'CHIRON', EROS: 'ÉROS', PSYCHE: 'PSYCHÉ', HYGEIA: 'HYGIE',
+      // Fixed Stars
+      REGULUS: 'RÉGULUS', SPICA: 'SPICA', ARCTURUS: 'ARCTURUS',
+      ANTARES: 'ANTARÈS', VEGA: 'VÉGA', SIRIUS: 'SIRIUS',
+      ALDEBARAN: 'ALDÉBARAN', BETELGEUSE: 'BÉTELGEUSE', RIGEL: 'RIGEL', ALGOL: 'ALGOL'
     }
   };
 
@@ -1092,36 +1113,67 @@ function formatChartSummary(data, language = 'English') {
     });
   }
 
-  // Planets
-  const planetLabel = isAr
-    ? 'الكواكب'
-    : isFr
-    ? 'Planètes'
-    : 'Planets';
+  // Group planets by type for better organization
   if (Array.isArray(data.planets)) {
-    lines.push(`• ${planetLabel}:`);
-    data.planets.forEach(p => {
-      // p.longitude is numeric
-      const pDet = degreeToSignDetails(p.longitude, language);
-      const translatedName = planetTranslations[language][p.name] || p.name;
-      const pLabel = isAr
-        ? `${translatedName} في ${pDet.signName}`
-        : isFr
-        ? `${translatedName} en ${pDet.signName}`
-        : `${translatedName} in ${pDet.signName}`;
-      // Determine localized retrograde marker
-      let retroMarker = '';
-      if (p.retrograde) {
-        if (language === 'Arabic') {
-          retroMarker = ' (رجعي)';
-        } else if (language === 'French') {
-          retroMarker = ' (R)';
-        } else {
-          retroMarker = ' (R)';
+    const planets = data.planets.filter(p => !p.type || p.type === 'planet');
+    const asteroids = data.planets.filter(p => p.type === 'asteroid');
+    const fixedStars = data.planets.filter(p => p.type === 'fixed_star');
+
+    // Main Planets
+    const planetLabel = isAr ? 'الكواكب' : isFr ? 'Planètes' : 'Planets';
+    if (planets.length > 0) {
+      lines.push(`• ${planetLabel}:`);
+      planets.forEach(p => {
+        const pDet = degreeToSignDetails(p.longitude, language);
+        const translatedName = planetTranslations[language][p.name] || p.name;
+        const pLabel = isAr
+          ? `${translatedName} في ${pDet.signName}`
+          : isFr
+          ? `${translatedName} en ${pDet.signName}`
+          : `${translatedName} in ${pDet.signName}`;
+        let retroMarker = '';
+        if (p.retrograde) {
+          retroMarker = language === 'Arabic' ? ' (رجعي)' : ' (R)';
         }
-      }
-      lines.push(`  - ${pLabel} ${pDet.degree}°${pDet.minutes}′${retroMarker}`);
-    });
+        lines.push(`  - ${pLabel} ${pDet.degree}°${pDet.minutes}′${retroMarker}`);
+      });
+    }
+
+    // Asteroids
+    const asteroidLabel = isAr ? 'الكويكبات' : isFr ? 'Astéroïdes' : 'Asteroids';
+    if (asteroids.length > 0) {
+      lines.push(`• ${asteroidLabel}:`);
+      asteroids.forEach(p => {
+        const pDet = degreeToSignDetails(p.longitude, language);
+        const translatedName = planetTranslations[language][p.name] || p.name;
+        const pLabel = isAr
+          ? `${translatedName} في ${pDet.signName}`
+          : isFr
+          ? `${translatedName} en ${pDet.signName}`
+          : `${translatedName} in ${pDet.signName}`;
+        let retroMarker = '';
+        if (p.retrograde) {
+          retroMarker = language === 'Arabic' ? ' (رجعي)' : ' (R)';
+        }
+        lines.push(`  - 🪨 ${pLabel} ${pDet.degree}°${pDet.minutes}′${retroMarker}`);
+      });
+    }
+
+    // Fixed Stars (only show if in tight aspect)
+    const starLabel = isAr ? 'النجوم الثابتة' : isFr ? 'Étoiles fixes' : 'Fixed Stars';
+    if (fixedStars.length > 0) {
+      lines.push(`• ${starLabel}:`);
+      fixedStars.forEach(p => {
+        const pDet = degreeToSignDetails(p.longitude, language);
+        const translatedName = planetTranslations[language][p.name] || p.name;
+        const pLabel = isAr
+          ? `${translatedName} في ${pDet.signName}`
+          : isFr
+          ? `${translatedName} en ${pDet.signName}`
+          : `${translatedName} in ${pDet.signName}`;
+        lines.push(`  - ⭐ ${pLabel} ${pDet.degree}°${pDet.minutes}′`);
+      });
+    }
   }
 
   return lines.join('\n');

@@ -5,6 +5,85 @@ const { DateTime } = require('luxon');
 const axios = require('axios');
 const tzlookup = require('tz-lookup');
 
+// Major asteroids with tight orbs for natal and transit charts
+function calculateAsteroids(julianDay) {
+  const majorAsteroids = [
+    { name: 'CERES', id: 1 },
+    { name: 'PALLAS', id: 2 },
+    { name: 'JUNO', id: 3 },
+    { name: 'VESTA', id: 4 },
+    { name: 'CHIRON', id: 2060 },
+    { name: 'EROS', id: 433 },
+    { name: 'PSYCHE', id: 16 },
+    { name: 'HYGEIA', id: 10 }
+  ];
+
+  const asteroidPositions = [];
+  
+  for (const asteroid of majorAsteroids) {
+    try {
+      const result = swisseph.swe_calc_ut(julianDay, asteroid.id, swisseph.SEFLG_SPEED);
+      console.log(`🪨 ${asteroid.name} (${asteroid.id}): ${result.longitude}°`);
+      
+      asteroidPositions.push({
+        name: asteroid.name,
+        longitude: result.longitude,
+        retrograde: result.longitudeSpeed < 0,
+        type: 'asteroid',
+        orb: 2.5 // Tight orb for asteroids
+      });
+    } catch (e) {
+      console.warn(`⚠️ Failed to calculate ${asteroid.name}:`, e.message);
+    }
+  }
+  
+  return asteroidPositions;
+}
+
+// Major fixed stars with very tight orbs
+function calculateFixedStars(julianDay) {
+  // Major fixed stars with their names and coordinates (epoch 2000.0)
+  const majorFixedStars = [
+    { name: 'REGULUS', ra: 152.092, dec: 11.967 },        // Heart of the Lion
+    { name: 'SPICA', ra: 201.298, dec: -11.161 },         // The Wheat Sheaf  
+    { name: 'ARCTURUS', ra: 213.915, dec: 19.182 },       // The Bear Guard
+    { name: 'ANTARES', ra: 247.352, dec: -26.432 },       // Heart of the Scorpion
+    { name: 'VEGA', ra: 279.234, dec: 38.784 },           // The Harp Star
+    { name: 'SIRIUS', ra: 101.287, dec: -16.716 },        // The Dog Star
+    { name: 'ALDEBARAN', ra: 69.179, dec: 16.509 },       // The Follower
+    { name: 'BETELGEUSE', ra: 88.793, dec: 7.407 },       // Giant's Shoulder
+    { name: 'RIGEL', ra: 78.634, dec: -8.202 },           // The Left Foot
+    { name: 'ALGOL', ra: 47.042, dec: 40.956 }            // The Demon Star
+  ];
+
+  const fixedStarPositions = [];
+  
+  for (const star of majorFixedStars) {
+    try {
+      // Convert RA/Dec to ecliptic longitude for the given Julian Day
+      const coords = swisseph.swe_cotrans(star.ra, star.dec, 1.0, -swisseph.SE_ECL2EQU);
+      const longitude = coords.longitude;
+      
+      // Apply precession to get position for the chart date
+      const precessedCoords = swisseph.swe_fixstar2_ut(star.name, julianDay, swisseph.SEFLG_SWIEPH);
+      
+      console.log(`⭐ ${star.name}: ${precessedCoords ? precessedCoords.longitude : longitude}°`);
+      
+      fixedStarPositions.push({
+        name: star.name,
+        longitude: precessedCoords ? precessedCoords.longitude : longitude,
+        retrograde: false, // Fixed stars don't retrograde
+        type: 'fixed_star',
+        orb: 1.0 // Very tight orb for fixed stars
+      });
+    } catch (e) {
+      console.warn(`⚠️ Failed to calculate ${star.name}:`, e.message);
+    }
+  }
+  
+  return fixedStarPositions;
+}
+
 async function calcJulianDayAndCoords(birthDate, birthTime, birthPlace) {
   if (!birthTime) {
     birthTime = '12:00 PM';
@@ -175,6 +254,14 @@ async function calculateFullChart({ julianDay, lat, lon, hasBirthTime }) {
     lilith.retrograde = apoSpeed < 0;
     planetPositions.push(lilith);
   }
+
+  // Calculate major asteroids
+  const asteroids = calculateAsteroids(julianDay);
+  planetPositions.push(...asteroids);
+
+  // Calculate fixed stars (only for natal charts, not needed for every transit)
+  const fixedStars = calculateFixedStars(julianDay);
+  planetPositions.push(...fixedStars);
 
   // If no birth time, return only planets
   if (!hasBirthTime) {
