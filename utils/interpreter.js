@@ -523,8 +523,8 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
   const approxTokens = totalContent.length / 4; // Rough estimate: 4 chars per token
   console.log(`📊 Approximate tokens: ${approxTokens}`);
   
-  // Much more aggressive token limiting to avoid 400 errors
-  if (approxTokens > 8000) { // Much lower limit for practical use
+  // Token limiting to avoid 400 errors - higher limit for fresh interpretations
+  if (approxTokens > 15000) { // Allow more tokens for complete chart interpretations
     console.log('⚠️ Context too large, trimming conversation history and chart data');
     // Keep only system message and a minimal version of current question
     const minimalUserMsg = {
