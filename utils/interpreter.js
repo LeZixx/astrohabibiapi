@@ -522,7 +522,7 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
   console.log(`📊 Approximate tokens: ${approxTokens}`);
   
   // Much more aggressive token limiting to avoid 400 errors
-  if (approxTokens > 50000) { // Much lower limit
+  if (approxTokens > 8000) { // Much lower limit for practical use
     console.log('⚠️ Context too large, trimming conversation history and chart data');
     // Keep only system message and a minimal version of current question
     const minimalUserMsg = {
