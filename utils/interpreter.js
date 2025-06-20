@@ -454,13 +454,15 @@ Remember: You're an intelligent astrologer who can answer ANY astrological quest
                              question.toLowerCase().includes('elaborate') ||
                              question.toLowerCase().includes('explain more');
   
-  // Check if this is likely a follow-up question (has conversation history)
+  // Check if this is a natal chart interpretation vs follow-up question
+  const isNatalChartInterpretation = question.toLowerCase().includes('spiritual interpretation') || 
+                                   question.toLowerCase().includes('natal chart');
   const hasConversationHistory = conversationHistory && conversationHistory.length > 0;
   
   const userMsg = {
     role: 'user',
-    content: hasConversationHistory
-      ? `${question}` // Just the question - context is in conversation history
+    content: (hasConversationHistory && !isNatalChartInterpretation)
+      ? `${question}` // Just the question for follow-ups - context is in conversation history
       : isSpecificReference 
         ? `${question}
 
