@@ -927,7 +927,9 @@ async function handleMessage(msg) {
       state.birthLon = parseFloat(found.lon);
       state.birthPlaceName = found.display_name;
 
-      await bot.sendMessage(chatId, translations[state.language].calculating);
+      await bot.sendMessage(chatId, translations[state.language].calculating, {
+        reply_markup: { remove_keyboard: true }
+      });
 
       const platformKey = `telegram-${chatId}`;
       const payload = {
