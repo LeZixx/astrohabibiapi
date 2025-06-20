@@ -1472,6 +1472,12 @@ async function handleCommands(msg) {
   
   console.log(`🔍 [handleCommands] User language: ${userLanguage}, has state: ${!!state}`);
   
+  // Reset user state if they're stuck in a broken state (emergency reset)
+  if (command === '/start' && state) {
+    console.log(`🔄 [handleCommands] Resetting user state for /start command`);
+    delete userState[chatId];
+  }
+  
   try {
     switch (command) {
       case '/help':
@@ -1480,6 +1486,12 @@ async function handleCommands(msg) {
         
       case '/about':
         await handleAboutCommand(chatId, platformKey, t, userLanguage);
+        break;
+        
+      case '/reset':
+        // Emergency reset command for stuck users
+        delete userState[chatId];
+        await bot.sendMessage(chatId, '🔄 Your session has been reset. Use /start to begin again.');
         break;
         
       case '/natal_chart':
@@ -1540,7 +1552,8 @@ async function handleTelegramUpdate(update) {
         await handleMessage(msg);
         
         // Only handle as follow-up question if user was ALREADY in 'done' state before this message
-        if (wasInDoneState) {
+        // AND the message is not a command
+        if (wasInDoneState && !msg.text.startsWith('/')) {
           await handleFollowUpMessage(msg);
         }
       }
@@ -1755,11 +1768,12 @@ if (isStandalone) {
         await handleMessage(msg);
         
         // Only handle as follow-up question if user was ALREADY in 'done' state before this message
-        if (wasInDoneState) {
+        // AND the message is not a command
+        if (wasInDoneState && !msg.text.startsWith('/')) {
           console.log(`✅ Processing as follow-up question for user ${msg.chat.id} (was in done state)`);
           await handleFollowUpMessage(msg);
         } else {
-          console.log(`⏸️ Skipping follow-up handler - user ${msg.chat.id} was not in done state before message`);
+          console.log(`⏸️ Skipping follow-up handler - user ${msg.chat.id} was not in done state before message or was a command`);
         }
       }
     } catch (error) {
@@ -1798,6 +1812,7 @@ async function setupBotCommands() {
       { command: 'fixed_stars', description: 'View fixed stars in your chart' },
       { command: 'transit_asteroids', description: 'Current transit asteroids' },
       { command: 'transit_fixed_stars', description: 'Current transit fixed stars' },
+      { command: 'reset', description: 'Reset your session' },
       { command: 'help', description: 'Show available commands' }
     ];
     
