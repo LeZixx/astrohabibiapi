@@ -996,7 +996,7 @@ async function handleMessage(msg) {
         }
         
         // Validate that we have a valid chart to interpret
-        if (!state.lastChart || !state.lastChart.rawChartData) {
+        if (!state.lastChart || !state.lastChart.planets) {
           console.error('❌ No valid chart data available for interpretation');
           throw new Error('No chart data available for interpretation');
         }
@@ -1006,8 +1006,8 @@ async function handleMessage(msg) {
           userId: platformKey,
           dialect: state.language === 'Arabic' ? 'MSA' : state.language,
           url: `${SERVICE_URL}/interpret`,
-          hasChartData: !!state.lastChart.rawChartData,
-          planetsCount: state.lastChart.rawChartData?.planets?.length
+          hasChartData: !!state.lastChart.planets,
+          planetsCount: state.lastChart.planets?.length
         });
         
         const requestPayload = {
