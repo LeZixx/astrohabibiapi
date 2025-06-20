@@ -1505,7 +1505,31 @@ async function handleCommands(msg) {
       case '/reset':
         // Emergency reset command for stuck users
         delete userState[chatId];
-        await bot.sendMessage(chatId, '🔄 Your session has been reset. Use /start to begin again.');
+        
+        // Also clear persistent conversation history from Firestore
+        try {
+          const platformKey = `telegram-${chatId}`;
+          const conversationsRef = admin.firestore()
+            .collection('users')
+            .doc(platformKey)
+            .collection('conversations');
+          
+          const snapshot = await conversationsRef.get();
+          const batch = admin.firestore().batch();
+          
+          snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+          });
+          
+          if (!snapshot.empty) {
+            await batch.commit();
+            console.log(`🗑️ Cleared ${snapshot.size} conversation messages for ${platformKey}`);
+          }
+        } catch (error) {
+          console.error('❌ Error clearing conversation history:', error.message);
+        }
+        
+        await bot.sendMessage(chatId, '🔄 Your session and conversation history have been completely reset. Use /start to begin fresh.');
         break;
         
       case '/natal_chart':
