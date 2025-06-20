@@ -360,7 +360,7 @@ async function forceKeyboard(chatId, currentStep, language) {
       // For place confirmation, we need to re-send the location options
       const state = userState[chatId];
       if (state && state.candidates) {
-        const keyboardRows = state.candidates.map(place => [{ text: place.display_name }]);
+        const keyboardRows = state.candidates.map(place => [place.display_name]);
         keyboardRows.push([t.backLabel]);
         
         const confirmPrompt = language === 'Arabic' ? '📌 اختر أقرب تطابق لبلدتك:' :
@@ -511,7 +511,7 @@ async function handleMessage(msg) {
       const validLanguages = ['العربية', 'English', 'Français'];
       
       if (!isValidKeyboardInput(text, validLanguages)) {
-        return forceKeyboard(chatId, 'language', null);
+        return forceKeyboard(chatId, 'language', 'English');
       }
       
       if (text === 'العربية') {
@@ -572,7 +572,7 @@ async function handleMessage(msg) {
         });
       } else {
         // Invalid input - force keyboard
-        return forceKeyboard(chatId, 'language', null);
+        return forceKeyboard(chatId, 'language', 'English');
       }
     }
 
@@ -884,7 +884,7 @@ async function handleMessage(msg) {
       state.step = 'birth-place-confirm';
 
       // Build keyboard rows of display_name with back button
-      const keyboardRows = geoResults.map(place => [{ text: place.display_name }]);
+      const keyboardRows = geoResults.map(place => [place.display_name]);
       keyboardRows.push([translations[state.language].backLabel]);
       return bot.sendMessage(
         chatId,
@@ -1022,21 +1022,17 @@ async function handleMessage(msg) {
           conversationHistoryLength: requestPayload.conversationHistory?.length || 0
         });
         
-        // Call the interpretation function directly instead of making HTTP request
-        console.log('🔍 Calling interpretChartQuery directly instead of HTTP request');
-        const { interpretChartQuery } = require('./utils/interpreter');
-        
-        const fullText = await interpretChartQuery(
-          state.lastChart.rawChartData,
-          'Please provide a spiritual interpretation of my natal chart.',
-          state.language === 'Arabic' ? 'Arabic' : state.language,
-          state.conversationHistory
-        );
+        // Revert to HTTP request approach that was working this morning
+        console.log('🔍 Making HTTP request to interpret endpoint');
+        const interpResp = await axios.post(`${SERVICE_URL}/interpret`, requestPayload, {
+          timeout: 120000 // 2 minute timeout
+        });
         
         console.log('✅ Interpret response received:', {
-          hasAnswer: !!fullText,
-          answerLength: fullText?.length
+          hasAnswer: !!interpResp.data.answer,
+          answerLength: interpResp.data.answer?.length
         });
+        const fullText = interpResp.data.answer || '';
         
         // Save the natal chart interpretation to persistent conversation history
         try {

@@ -408,31 +408,37 @@ async function interpretChartQuery(chartData, question, dialect = chartData.dial
   
   const systemMsg = {
     role: 'system',
-    content: `You are a warm, insightful, and conversational astrologer - like having a deep conversation with a wise friend who happens to be an expert in astrology. Respond naturally and intuitively in ${langLabel}.
+    content: `You are a warm, spiritual astrologer speaking directly to someone about their natal chart in ${langLabel}. You're like a wise, intuitive friend who deeply understands astrology and human nature.
 
-CRITICAL INSTRUCTION - ANSWER THE SPECIFIC QUESTION:
-- READ the user's question carefully and answer EXACTLY what they're asking
-- If they ask about a specific aspect, planet, or insight - focus ONLY on that
-- DO NOT give generic chart overviews unless specifically requested
-- If they reference a number (like "Insight #4"), pay attention to the context provided in parentheses
-- Stay laser-focused on their specific question - don't wander into other chart areas
+CRITICAL FORMATTING RULES:
+- Use NO markdown formatting (no ###, ####, **, etc.) - write in plain text only
+- Address the person directly using "you" and "your" - never say "this individual" or "the native"
+- Be personal, warm, and spiritual in your approach
+- Write as if you're having an intimate conversation with a friend
 
-CONVERSATION STYLE:
-- Be conversational, warm, and personable
-- Ask follow-up questions to deepen the conversation about THEIR SPECIFIC TOPIC
-- Share insights that connect to the person's lived experience
-- Use natural language, not textbook-style interpretations
-- Feel free to be curious about their life and experiences related to their question
-- Make connections but stay relevant to what they asked
-- Offer practical, actionable insights they can apply to their specific question
+INTELLIGENCE AND FLEXIBILITY:
+- READ the user's question and understand what they're truly asking about
+- Whether they ask about stelliums, aspects, planets, houses, or spiritual insights - answer intelligently
+- Don't be rigid - let your astrological knowledge guide you to give them exactly what they need
+- If they ask about stelliums, identify clusters of planets in their chart and explain the significance
+- If they ask about specific aspects, focus on those but connect them to their life experience
+- Always relate everything back to their personal journey and growth
 
-ASTROLOGICAL FOUNDATION (your "north star"):
+TONE AND STYLE:
+- Speak warmly and personally: "Your Sun in Libra shows that you..." not "This placement indicates..."
+- Use spiritual language: "Your soul chose this placement to learn..." 
+- Ask rhetorical questions: "Have you noticed how you naturally seek harmony?"
+- Offer guidance: "This suggests you might find fulfillment through..."
+- Be encouraging and insightful, not clinical or detached
+- Connect the dots between different parts of their chart naturally
+
+ASTROLOGICAL FOUNDATION:
 1. You MUST use ONLY the exact astrological data provided in the user's message
 2. All planetary positions, aspects, and calculations must be based on the provided data
 3. DO NOT make up any astrological positions or dates not in the data
-4. If information is missing from the data, acknowledge it naturally in conversation
+4. If information is missing, acknowledge it naturally: "I'd need to see your full chart to tell you more about..."
 
-NEVER be rigid or textbook-like. This should feel like a flowing conversation with someone who deeply understands both astrology and human nature - BUT always focused on answering their specific question.`
+Remember: You're an intelligent astrologer who can answer ANY astrological question about their chart. Use your wisdom to give them exactly what they're seeking.`
   };
   
   // Detect if this is a specific reference question
@@ -515,78 +521,9 @@ I'd love to hear your thoughts and insights! Feel free to ask me follow-up quest
   }
   
   try {
-    // Filter planets to exclude asteroids and fixed stars for initial interpretation
-    const mainPlanets = chartData.planets?.filter(p => !p.type || p.type === 'planet') || [];
-    
-    // Create comprehensive chart data for main planets
-    let chartText = '';
-    
-    // Add ascendant with precise degree/minute
-    if (chartData.ascendant) {
-      const ascDet = signDetails(chartData.ascendant);
-      chartText += `ASCENDANT: ${ENGLISH_SIGNS[ascDet.idx]} ${ascDet.degree}°${ascDet.minutes}′\n\n`;
-    }
-    
-    // Add houses with precise degree/minute
-    if (chartData.houses && Array.isArray(chartData.houses)) {
-      chartText += 'HOUSES:\n';
-      chartData.houses.forEach((h, i) => {
-        const hDet = signDetails(h);
-        chartText += `House ${i + 1}: ${ENGLISH_SIGNS[hDet.idx]} ${hDet.degree}°${hDet.minutes}′\n`;
-      });
-      chartText += '\n';
-    }
-    
-    // Add main planets with precise degree/minute and houses
-    chartText += 'PLANETS:\n';
-    mainPlanets.forEach(p => {
-      const pDet = signDetails(p.longitude);
-      const sign = ENGLISH_SIGNS[pDet.idx];
-      const house = p.house || findHouse(p.longitude, chartData.houses);
-      const retrograde = p.retrograde ? ' (Retrograde)' : '';
-      chartText += `${p.name}: ${sign} ${pDet.degree}°${pDet.minutes}′${house ? ` in House ${house}` : ''}${retrograde}\n`;
-    });
-    
-    // Add major aspects
-    const allAspects = findAllAspects(mainPlanets);
-    if (allAspects.length > 0) {
-      chartText += '\nMAJOR ASPECTS:\n';
-      // Only show tight aspects (orb <= 3°) to keep it concise
-      const tightAspects = allAspects.filter(asp => parseFloat(asp.orb) <= 3);
-      tightAspects.slice(0, 10).forEach(asp => { // Limit to 10 aspects
-        chartText += `${asp.planet1} ${asp.type} ${asp.planet2} (${asp.orb}°)\n`;
-      });
-    }
-    
     const response = await axios.post(SONAR_ENDPOINT, {
-      model: 'llama-3.1-sonar-small-128k-online',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a professional astrologer. Provide a comprehensive natal chart interpretation using this EXACT format:
-
-### Ascendant (Rising Sign)
-**[Sign] [Degree]°[Minutes]′**
-[Explain what the Ascendant represents and how this specific sign manifests]
-
-### Houses
-[For each house 1-12, provide:]
-**House [Number]: [Sign] [Degree]°[Minutes]′** - [Explain what this house represents and how the sign influences it]
-
-### Planets
-[For each planet, use this format:]
-
-#### [Planet Name]
-**[Sign] [Degree]°[Minutes]′ in House [Number]**
-[First sentence: What this planet represents. Second sentence: How the sign placement manifests. Third sentence: How this affects the person.]
-
-Be detailed, specific, and insightful for each placement. Focus on practical implications for the person's life.`
-        },
-        {
-          role: 'user', 
-          content: `Please interpret this natal chart:\n\n${chartText}\n\nProvide detailed insights on personality, emotions, life path, and relationships.`
-        }
-      ]
+      model: 'llama-3.1-sonar-large-128k-online',
+      messages
     }, {
       headers: {
         'Authorization': `Bearer ${SONAR_API_KEY}`,
