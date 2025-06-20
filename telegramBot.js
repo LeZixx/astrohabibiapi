@@ -995,11 +995,19 @@ async function handleMessage(msg) {
           state.conversationHistory = [];
         }
         
+        // Validate that we have a valid chart to interpret
+        if (!state.lastChart || !state.lastChart.rawChartData) {
+          console.error('❌ No valid chart data available for interpretation');
+          throw new Error('No chart data available for interpretation');
+        }
+        
         console.log('🔍 Making interpret request with:', {
           SERVICE_URL,
           userId: platformKey,
           dialect: state.language === 'Arabic' ? 'MSA' : state.language,
-          url: `${SERVICE_URL}/interpret`
+          url: `${SERVICE_URL}/interpret`,
+          hasChartData: !!state.lastChart.rawChartData,
+          planetsCount: state.lastChart.rawChartData?.planets?.length
         });
         
         const requestPayload = {
@@ -1014,7 +1022,10 @@ async function handleMessage(msg) {
           conversationHistoryLength: requestPayload.conversationHistory?.length || 0
         });
         
-        const interpResp = await axios.post(`${SERVICE_URL}/interpret`, requestPayload);
+        // Add timeout to prevent hanging requests
+        const interpResp = await axios.post(`${SERVICE_URL}/interpret`, requestPayload, {
+          timeout: 120000 // 2 minute timeout
+        });
         
         console.log('✅ Interpret response received:', {
           hasAnswer: !!interpResp.data.answer,
