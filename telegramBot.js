@@ -1022,16 +1022,21 @@ async function handleMessage(msg) {
           conversationHistoryLength: requestPayload.conversationHistory?.length || 0
         });
         
-        // Add timeout to prevent hanging requests
-        const interpResp = await axios.post(`${SERVICE_URL}/interpret`, requestPayload, {
-          timeout: 120000 // 2 minute timeout
-        });
+        // Call the interpretation function directly instead of making HTTP request
+        console.log('🔍 Calling interpretChartQuery directly instead of HTTP request');
+        const { interpretChartQuery } = require('./utils/interpreter');
+        
+        const fullText = await interpretChartQuery(
+          state.lastChart.rawChartData,
+          'Please provide a spiritual interpretation of my natal chart.',
+          state.language === 'Arabic' ? 'Arabic' : state.language,
+          state.conversationHistory
+        );
         
         console.log('✅ Interpret response received:', {
-          hasAnswer: !!interpResp.data.answer,
-          answerLength: interpResp.data.answer?.length
+          hasAnswer: !!fullText,
+          answerLength: fullText?.length
         });
-        const fullText = interpResp.data.answer || '';
         
         // Save the natal chart interpretation to persistent conversation history
         try {
