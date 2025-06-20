@@ -424,6 +424,13 @@ INTELLIGENCE AND FLEXIBILITY:
 - If they ask about specific aspects, focus on those but connect them to their life experience
 - Always relate everything back to their personal journey and growth
 
+CRITICAL FOR FOLLOW-UP QUESTIONS:
+- If this is a follow-up question (you can see our previous conversation), answer ONLY their specific question
+- DO NOT reinterpret the entire chart again
+- DO NOT repeat information you've already given
+- Focus solely on what they're asking about now
+- Use the chart data from our conversation history - you don't need it repeated
+
 TONE AND STYLE:
 - Speak warmly and personally: "Your Sun in Libra shows that you..." not "This placement indicates..."
 - Use spiritual language: "Your soul chose this placement to learn..." 
@@ -447,16 +454,21 @@ Remember: You're an intelligent astrologer who can answer ANY astrological quest
                              question.toLowerCase().includes('elaborate') ||
                              question.toLowerCase().includes('explain more');
   
+  // Check if this is likely a follow-up question (has conversation history)
+  const hasConversationHistory = conversationHistory && conversationHistory.length > 0;
+  
   const userMsg = {
     role: 'user',
-    content: isSpecificReference 
-      ? `${question}
+    content: hasConversationHistory
+      ? `${question}` // Just the question - context is in conversation history
+      : isSpecificReference 
+        ? `${question}
 
 Here's my chart data for reference:
 ${formattedChart}
 
 Please focus specifically on what I'm asking about. I don't need a full chart overview - just elaborate on the specific point I mentioned.`
-      : `${question}
+        : `${question}
 
 Here's my chart data:
 ${formattedChart}
