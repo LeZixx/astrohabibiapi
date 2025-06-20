@@ -29,6 +29,12 @@ const { getLatestChart, saveConversationMessage, getConversationHistory } = requ
 
 // Helper to convert a degree to sign name and degrees/minutes
 function degreeToSignDetails(deg, language) {
+  // Validate input
+  if (typeof deg !== 'number' || isNaN(deg) || deg === null || deg === undefined) {
+    console.warn('⚠️ Invalid degree value passed to degreeToSignDetails:', deg);
+    return { signName: 'Unknown', degree: 0, minutes: 0 };
+  }
+  
   // Sign names in English and Arabic (MSA)
   const signsEn = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
   const signsAr = ['الحمل','الثور','الجوزاء','السرطان','الأسد','العذراء','الميزان','العقرب','القوس','الجدي','الدلو','الحوت'];
@@ -51,6 +57,8 @@ function degreeToSignDetails(deg, language) {
 
 const translations = {
   Arabic: {
+    aboutSection: '🌟 AstroHabibi هو رفيقك الودود في علم الفلك على التلغرام والواتساب.\n\nنحن نستخدم علم الفلك الغربي الاستوائي ونظام البيوت Placidus لحساب:\n• خريطتك الفلكية 🔭\n• عبور الكواكب اليومي 📊\n• النجوم الثابتة ✨\n• الكويكبات ☄️\n\nكل شيء مُوضح بلغة بسيطة وعملية—مثالي للعقول الفضولية والإرشاد العملي.\n\n👋 مرحباً، أنا نادية، منجمتك الشخصية.\nنحن نستخدم علم الفلك لتوقيت أفضل حياتنا ⏳✨\n"علم الفلك كمظلة تحمينا في الأوقات الممطرة" ☔🔮',
+    continueButton: 'ابدأ رحلتي الفلكية ✨',
     dialectPrompt: '🗣️ اختر لهجتك العربية:',
     dayPrompt:     '📅 اختر يوم ميلادك:',
     monthPrompt:   '📅 اختر شهر ميلادك (1-12):',
@@ -64,8 +72,19 @@ const translations = {
     backLabel: '⬅️ رجوع',
     unknownTimeLabel: 'غير معروف',
     confirmPlacePrompt: '📌 اختر أقرب تطابق لبلدتك:',
+    commands: {
+      help: '📋 قائمة الأوامر المتاحة:\n\n/start - ابدأ إنشاء خريطتك الفلكية\n/about - معلومات عن AstroHabibi\n/natal_chart - عرض خريطتك الفلكية المحفوظة\n/asteroids - عرض الكويكبات في خريطتك\n/fixed_stars - عرض النجوم الثابتة في خريطتك\n/transit_asteroids - كويكبات العبور الحالية\n/transit_fixed_stars - النجوم الثابتة العابرة الحالية\n/help - عرض هذه القائمة',
+      natalChartRetrieved: '📜 خريطتك الفلكية المحفوظة:',
+      noChartFound: '❌ لم يتم العثور على خريطة فلكية. استخدم /start لإنشاء واحدة.',
+      asteroids: '🪨 الكويكبات في خريطتك الفلكية:',
+      fixedStars: '⭐ النجوم الثابتة في خريطتك الفلكية:',
+      transitAsteroids: '🌍 كويكبات العبور الحالية:',
+      transitFixedStars: '✨ النجوم الثابتة العابرة الحالية:'
+    }
   },
   English: {
+    aboutSection: '🌟 AstroHabibi is your friendly astrology companion on Telegram & WhatsApp.\n\nWe use Western tropical astrology and the Placidus house system to calculate:\n• Your natal chart 🔭\n• Today\'s planetary transits 📊\n• Fixed stars ✨\n• Asteroids ☄️\n\nAll explained in simple, everyday language—perfect for curious minds and casual guidance.\n\n👋 Hi, I\'m Celeste, your personal astrologer.\nWe use astrology to time our best lives ⏳✨\n"Astrology as an umbrella to shield us during rainy times" ☔🔮',
+    continueButton: 'Start My Journey ✨',
     dialectPrompt:     '',
     dayPrompt:         '📅 Please choose your birth day:',
     monthPrompt:       '📅 Please choose your birth month (1-12):',
@@ -79,8 +98,19 @@ const translations = {
     backLabel: '⬅️ Back',
     unknownTimeLabel: 'Unknown',
     confirmPlacePrompt: '📌 Please choose the best match for your birthplace:',
+    commands: {
+      help: '📋 Available Commands:\n\n/start - Create your natal chart\n/about - About AstroHabibi\n/natal_chart - View your saved natal chart\n/asteroids - View asteroids in your chart\n/fixed_stars - View fixed stars in your chart\n/transit_asteroids - Current transit asteroids\n/transit_fixed_stars - Current transit fixed stars\n/help - Show this command list',
+      natalChartRetrieved: '📜 Your saved natal chart:',
+      noChartFound: '❌ No natal chart found. Use /start to create one.',
+      asteroids: '🪨 Asteroids in your natal chart:',
+      fixedStars: '⭐ Fixed stars in your natal chart:',
+      transitAsteroids: '🌍 Current transit asteroids:',
+      transitFixedStars: '✨ Current transit fixed stars:'
+    }
   },
   French: {
+    aboutSection: '🌟 AstroHabibi est votre compagnon astrologique convivial sur Telegram et WhatsApp.\n\nNous utilisons l\'astrologie tropicale occidentale et le système de maisons Placidus pour calculer:\n• Votre thème natal 🔭\n• Les transits planétaires d\'aujourd\'hui 📊\n• Les étoiles fixes ✨\n• Les astéroïdes ☄️\n\nTout expliqué dans un langage simple et quotidien—parfait pour les esprits curieux et les conseils occasionnels.\n\n👋 Salut, je suis Céleste, votre astrologue personnelle.\nNous utilisons l\'astrologie pour chronométrer nos meilleures vies ⏳✨\n"L\'astrologie comme un parapluie pour nous protéger pendant les temps pluvieux" ☔🔮',
+    continueButton: 'Commencer Mon Voyage ✨',
     dialectPrompt: '',
     dayPrompt: '📅 Veuillez choisir le jour de naissance:',
     monthPrompt: '📅 Veuillez choisir le mois de naissance (1-12):',
@@ -94,6 +124,15 @@ const translations = {
     backLabel: '⬅️ Retour',
     unknownTimeLabel: 'Inconnu',
     confirmPlacePrompt: '📌 Choisissez le lieu correspondant :',
+    commands: {
+      help: '📋 Commandes disponibles:\n\n/start - Créer votre thème natal\n/about - À propos d\'AstroHabibi\n/natal_chart - Voir votre thème natal sauvegardé\n/asteroids - Voir les astéroïdes dans votre thème\n/fixed_stars - Voir les étoiles fixes dans votre thème\n/transit_asteroids - Astéroïdes en transit actuels\n/transit_fixed_stars - Étoiles fixes en transit actuelles\n/help - Afficher cette liste',
+      natalChartRetrieved: '📜 Votre thème natal sauvegardé:',
+      noChartFound: '❌ Aucun thème natal trouvé. Utilisez /start pour en créer un.',
+      asteroids: '🪨 Astéroïdes dans votre thème natal:',
+      fixedStars: '⭐ Étoiles fixes dans votre thème natal:',
+      transitAsteroids: '🌍 Astéroïdes en transit actuels:',
+      transitFixedStars: '✨ Étoiles fixes en transit actuelles:'
+    }
   }
 };
 
@@ -155,6 +194,10 @@ async function setupWebhook() {
       console.error('Expected:', WEBHOOK_URL);
       console.error('Actual:', webhookInfo.url);
     }
+    
+    // Set up bot commands after webhook is configured
+    await setupBotCommands();
+    
   } catch (error) {
     console.error('❌ Failed to set webhook:', error.message);
     console.error('❌ Full error:', error);
@@ -342,8 +385,11 @@ async function handleMessage(msg) {
   const text = msg.text.trim();
   const state = userState[chatId];
   
-  // If no state and user isn't sending /start, prompt them to start
-  if (!state) {
+  console.log(`🔍 [handleMessage] Called with text: "${text}", has state: ${!!state}, is command: ${text.startsWith('/')}`);
+  
+  // If no state and user isn't sending /start or other commands, prompt them to start
+  if (!state && !text.startsWith('/')) {
+    console.log(`🔍 [handleMessage] No state and not a command, sending start prompt`);
     return bot.sendMessage(chatId, 'Please use /start to begin creating your natal chart! 🌟');
   }
 
@@ -471,17 +517,10 @@ async function handleMessage(msg) {
       if (text === 'العربية') {
         state.language = 'Arabic';
         state.dialect = 'MSA';
-        state.step = 'birth-day';
-        return bot.sendMessage(chatId, translations.Arabic.dayPrompt, {
+        state.step = 'about';
+        return bot.sendMessage(chatId, translations.Arabic.aboutSection, {
           reply_markup: {
-            keyboard: [
-              ['1','2','3','4','5','6','7'],
-              ['8','9','10','11','12','13','14'],
-              ['15','16','17','18','19','20','21'],
-              ['22','23','24','25','26','27','28'],
-              ['29','30','31'],
-              [translations['Arabic'].backLabel]
-            ],
+            keyboard: [[translations.Arabic.continueButton]],
             one_time_keyboard: false,
             resize_keyboard: true
           }
@@ -489,17 +528,10 @@ async function handleMessage(msg) {
       } else if (text === 'English') {
         state.language = 'English';
         state.dialect = 'English';
-        state.step = 'birth-day';
-        return bot.sendMessage(chatId, translations[state.language].dayPrompt, {
+        state.step = 'about';
+        return bot.sendMessage(chatId, translations.English.aboutSection, {
           reply_markup: {
-            keyboard: [
-              ['1','2','3','4','5','6','7'],
-              ['8','9','10','11','12','13','14'],
-              ['15','16','17','18','19','20','21'],
-              ['22','23','24','25','26','27','28'],
-              ['29','30','31'],
-              [translations[state.language].backLabel]
-            ],
+            keyboard: [[translations.English.continueButton]],
             one_time_keyboard: false,
             resize_keyboard: true
           }
@@ -507,8 +539,24 @@ async function handleMessage(msg) {
       } else if (text === 'Français') {
         state.language = 'French';
         state.dialect = 'French';
+        state.step = 'about';
+        return bot.sendMessage(chatId, translations.French.aboutSection, {
+          reply_markup: {
+            keyboard: [[translations.French.continueButton]],
+            one_time_keyboard: false,
+            resize_keyboard: true
+          }
+        });
+      }
+    }
+
+    // Handle About section continuation
+    if (state.step === 'about') {
+      const t = translations[state.language] || translations.English;
+      
+      if (text === t.continueButton) {
         state.step = 'birth-day';
-        return bot.sendMessage(chatId, translations[state.language].dayPrompt, {
+        return bot.sendMessage(chatId, t.dayPrompt, {
           reply_markup: {
             keyboard: [
               ['1','2','3','4','5','6','7'],
@@ -516,7 +564,7 @@ async function handleMessage(msg) {
               ['15','16','17','18','19','20','21'],
               ['22','23','24','25','26','27','28'],
               ['29','30','31'],
-              [translations[state.language].backLabel]
+              [t.backLabel]
             ],
             one_time_keyboard: false,
             resize_keyboard: true
@@ -948,15 +996,23 @@ async function handleMessage(msg) {
         console.log('🔍 Making interpret request with:', {
           SERVICE_URL,
           userId: platformKey,
-          dialect: state.language === 'Arabic' ? 'MSA' : state.language
+          dialect: state.language === 'Arabic' ? 'MSA' : state.language,
+          url: `${SERVICE_URL}/interpret`
         });
         
-        const interpResp = await axios.post(`${SERVICE_URL}/interpret`, {
+        const requestPayload = {
           userId: platformKey,
           question: 'Please provide a spiritual interpretation of my natal chart.',
           dialect: state.language === 'Arabic' ? 'MSA' : state.language,
           conversationHistory: state.conversationHistory
+        };
+        
+        console.log('🔍 Request payload:', {
+          ...requestPayload,
+          conversationHistoryLength: requestPayload.conversationHistory?.length || 0
         });
+        
+        const interpResp = await axios.post(`${SERVICE_URL}/interpret`, requestPayload);
         
         console.log('✅ Interpret response received:', {
           hasAnswer: !!interpResp.data.answer,
@@ -1014,6 +1070,12 @@ async function handleMessage(msg) {
         }
       } catch (interpErr) {
         console.error('✖ Interpretation error:', interpErr);
+        console.error('✖ Interpretation error details:', {
+          message: interpErr.message,
+          response: interpErr.response?.data,
+          status: interpErr.response?.status,
+          url: `${SERVICE_URL}/interpret`
+        });
         await bot.sendMessage(chatId,
           state.language === 'Arabic'
             ? '❌ حدث خطأ أثناء جلب التفسير. حاول مرة أخرى لاحقًا.'
@@ -1051,7 +1113,7 @@ function formatChartSummary(data, language = 'English') {
       'NORTH NODE': 'NORTH NODE', LILITH: 'LILITH',
       // Asteroids
       CERES: 'CERES', PALLAS: 'PALLAS', JUNO: 'JUNO', VESTA: 'VESTA',
-      CHIRON: 'CHIRON', EROS: 'EROS', PSYCHE: 'PSYCHE', HYGEIA: 'HYGEIA',
+      CHIRON: 'CHIRON', PSYCHE: 'PSYCHE', HYGEIA: 'HYGEIA',
       // Fixed Stars
       REGULUS: 'REGULUS', SPICA: 'SPICA', ARCTURUS: 'ARCTURUS',
       ANTARES: 'ANTARES', VEGA: 'VEGA', SIRIUS: 'SIRIUS',
@@ -1064,7 +1126,7 @@ function formatChartSummary(data, language = 'English') {
       'NORTH NODE': 'عقدة الشمال', LILITH: 'ليليث',
       // Asteroids
       CERES: 'سيريس', PALLAS: 'بالاس', JUNO: 'جونو', VESTA: 'فستا',
-      CHIRON: 'خيرون', EROS: 'إيروس', PSYCHE: 'بسايكي', HYGEIA: 'هيجيا',
+      CHIRON: 'خيرون', PSYCHE: 'بسايكي', HYGEIA: 'هيجيا',
       // Fixed Stars
       REGULUS: 'ريجولوس', SPICA: 'السنبلة', ARCTURUS: 'ذؤاب الدبران',
       ANTARES: 'قلب العقرب', VEGA: 'النسر الواقع', SIRIUS: 'الشعرى',
@@ -1077,7 +1139,7 @@ function formatChartSummary(data, language = 'English') {
       'NORTH NODE': 'NŒUD NORD', LILITH: 'LILITH',
       // Asteroids
       CERES: 'CÉRÈS', PALLAS: 'PALLAS', JUNO: 'JUNON', VESTA: 'VESTA',
-      CHIRON: 'CHIRON', EROS: 'ÉROS', PSYCHE: 'PSYCHÉ', HYGEIA: 'HYGIE',
+      CHIRON: 'CHIRON', PSYCHE: 'PSYCHÉ', HYGEIA: 'HYGIE',
       // Fixed Stars
       REGULUS: 'RÉGULUS', SPICA: 'SPICA', ARCTURUS: 'ARCTURUS',
       ANTARES: 'ANTARÈS', VEGA: 'VÉGA', SIRIUS: 'SIRIUS',
@@ -1242,6 +1304,214 @@ function formatTransitChart(transits, language) {
 
 
 // Main webhook update handler
+// Handle /natal_chart command
+async function handleNatalChartCommand(chatId, platformKey, t, userLanguage) {
+  try {
+    const latest = await getLatestChart(platformKey);
+    if (!latest) {
+      await bot.sendMessage(chatId, t.commands.noChartFound);
+      return;
+    }
+    
+    const chartData = latest.rawChartData || latest;
+    const formattedChart = formatChartSummary(chartData, t);
+    await bot.sendMessage(chatId, `${t.commands.natalChartRetrieved}\n\n${formattedChart}`, { parse_mode: 'Markdown' });
+  } catch (error) {
+    console.error('❌ Error retrieving natal chart:', error);
+    await bot.sendMessage(chatId, t.commands.noChartFound);
+  }
+}
+
+// Handle /asteroids command
+async function handleAsteroidsCommand(chatId, platformKey, t, userLanguage) {
+  try {
+    const latest = await getLatestChart(platformKey);
+    if (!latest) {
+      await bot.sendMessage(chatId, t.commands.noChartFound);
+      return;
+    }
+    
+    const chartData = latest.rawChartData || latest;
+    const asteroids = chartData.planets?.filter(p => p.type === 'asteroid') || [];
+    
+    if (asteroids.length === 0) {
+      await bot.sendMessage(chatId, '❌ No asteroids found in your chart.');
+      return;
+    }
+    
+    let asteroidsText = `${t.commands.asteroids}\n\n`;
+    asteroids.forEach(asteroid => {
+      const details = degreeToSignDetails(asteroid.longitude, userLanguage);
+      const retrograde = asteroid.retrograde ? ' (R)' : '';
+      asteroidsText += `🪨 *${asteroid.name}* in ${details.signName} ${details.degree}°${details.minutes}′${retrograde}\n`;
+    });
+    
+    await bot.sendMessage(chatId, asteroidsText, { parse_mode: 'Markdown' });
+  } catch (error) {
+    console.error('❌ Error retrieving asteroids:', error);
+    await bot.sendMessage(chatId, t.commands.noChartFound);
+  }
+}
+
+// Handle /fixed_stars command
+async function handleFixedStarsCommand(chatId, platformKey, t, userLanguage) {
+  try {
+    const latest = await getLatestChart(platformKey);
+    if (!latest) {
+      await bot.sendMessage(chatId, t.commands.noChartFound);
+      return;
+    }
+    
+    const chartData = latest.rawChartData || latest;
+    const fixedStars = chartData.planets?.filter(p => p.type === 'fixed_star') || [];
+    
+    if (fixedStars.length === 0) {
+      await bot.sendMessage(chatId, '❌ No fixed stars found in your chart.');
+      return;
+    }
+    
+    let starsText = `${t.commands.fixedStars}\n\n`;
+    fixedStars.forEach(star => {
+      const details = degreeToSignDetails(star.longitude, userLanguage);
+      starsText += `⭐ *${star.name}* in ${details.signName} ${details.degree}°${details.minutes}′\n`;
+    });
+    
+    await bot.sendMessage(chatId, starsText, { parse_mode: 'Markdown' });
+  } catch (error) {
+    console.error('❌ Error retrieving fixed stars:', error);
+    await bot.sendMessage(chatId, t.commands.noChartFound);
+  }
+}
+
+// Handle /transit_asteroids command
+async function handleTransitAsteroidsCommand(chatId, platformKey, t, userLanguage) {
+  try {
+    const latest = await getLatestChart(platformKey);
+    if (!latest) {
+      await bot.sendMessage(chatId, t.commands.noChartFound);
+      return;
+    }
+    
+    const chartData = latest.rawChartData || latest;
+    
+    // Get current transits (this will include transit asteroids)
+    const { getLiveTransits } = require('./utils/transitCalculator');
+    const allTransits = await getLiveTransits(chartData);
+    const transitAsteroids = allTransits.filter(t => ['CERES', 'PALLAS', 'JUNO', 'VESTA', 'CHIRON', 'PSYCHE', 'HYGEIA'].includes(t.name));
+    
+    if (transitAsteroids.length === 0) {
+      await bot.sendMessage(chatId, '❌ No transit asteroids available.');
+      return;
+    }
+    
+    let transitsText = `${t.commands.transitAsteroids}\n\n`;
+    transitAsteroids.forEach(transit => {
+      const retrograde = transit.retrograde ? ' (R)' : '';
+      transitsText += `🌍 *${transit.name}* in ${transit.currentSign} ${transit.degree}°${transit.minutes}′${retrograde} (House ${transit.currentHouse})\n`;
+    });
+    
+    await bot.sendMessage(chatId, transitsText, { parse_mode: 'Markdown' });
+  } catch (error) {
+    console.error('❌ Error retrieving transit asteroids:', error);
+    await bot.sendMessage(chatId, '❌ Unable to calculate current transits.');
+  }
+}
+
+// Handle /transit_fixed_stars command
+async function handleTransitFixedStarsCommand(chatId, platformKey, t, userLanguage) {
+  try {
+    const latest = await getLatestChart(platformKey);
+    if (!latest) {
+      await bot.sendMessage(chatId, t.commands.noChartFound);
+      return;
+    }
+    
+    const chartData = latest.rawChartData || latest;
+    
+    // Get current transits (this will include transit fixed stars)
+    const { getLiveTransits } = require('./utils/transitCalculator');
+    const allTransits = await getLiveTransits(chartData);
+    const transitFixedStars = allTransits.filter(t => t.type === 'fixed_star');
+    
+    if (transitFixedStars.length === 0) {
+      await bot.sendMessage(chatId, '❌ No transit fixed stars available.');
+      return;
+    }
+    
+    let transitsText = `${t.commands.transitFixedStars}\n\n`;
+    transitFixedStars.forEach(transit => {
+      const details = degreeToSignDetails(transit.currentLongitude, userLanguage);
+      transitsText += `✨ *${transit.name}* in ${details.signName} ${details.degree}°${details.minutes}′ (House ${transit.currentHouse})\n`;
+    });
+    
+    await bot.sendMessage(chatId, transitsText, { parse_mode: 'Markdown' });
+  } catch (error) {
+    console.error('❌ Error retrieving transit fixed stars:', error);
+    await bot.sendMessage(chatId, '❌ Unable to calculate current transit fixed stars.');
+  }
+}
+
+// Handle /about command
+async function handleAboutCommand(chatId, platformKey, t, userLanguage) {
+  const aboutWithCommands = `${t.aboutSection}\n\n${t.commands.help}`;
+  await bot.sendMessage(chatId, aboutWithCommands);
+}
+
+// Handle bot commands
+async function handleCommands(msg) {
+  const chatId = msg.chat.id;
+  const command = msg.text.split(' ')[0].toLowerCase();
+  const platformKey = `telegram-${chatId}`;
+  
+  console.log(`🔍 [handleCommands] Processing command: "${command}" from chat ${chatId}`);
+  
+  // Get user's language preference
+  const state = userState[chatId];
+  const userLanguage = state?.language || 'English';
+  const t = translations[userLanguage] || translations.English;
+  
+  console.log(`🔍 [handleCommands] User language: ${userLanguage}, has state: ${!!state}`);
+  
+  try {
+    switch (command) {
+      case '/help':
+        await bot.sendMessage(chatId, t.commands.help);
+        break;
+        
+      case '/about':
+        await handleAboutCommand(chatId, platformKey, t, userLanguage);
+        break;
+        
+      case '/natal_chart':
+        await handleNatalChartCommand(chatId, platformKey, t, userLanguage);
+        break;
+        
+      case '/asteroids':
+        await handleAsteroidsCommand(chatId, platformKey, t, userLanguage);
+        break;
+        
+      case '/fixed_stars':
+        await handleFixedStarsCommand(chatId, platformKey, t, userLanguage);
+        break;
+        
+      case '/transit_asteroids':
+        await handleTransitAsteroidsCommand(chatId, platformKey, t, userLanguage);
+        break;
+        
+      case '/transit_fixed_stars':
+        await handleTransitFixedStarsCommand(chatId, platformKey, t, userLanguage);
+        break;
+        
+      default:
+        await bot.sendMessage(chatId, t.commands.help);
+        break;
+    }
+  } catch (error) {
+    console.error('❌ Error handling command:', error);
+    await bot.sendMessage(chatId, '❌ An error occurred processing your command.');
+  }
+}
+
 async function handleTelegramUpdate(update) {
   try {
     if (update.message) {
@@ -1250,6 +1520,13 @@ async function handleTelegramUpdate(update) {
       // Handle /start command
       if (msg.text && msg.text.startsWith('/start')) {
         await handleStartCommand(msg);
+        return;
+      }
+      
+      // Handle other commands
+      if (msg.text && msg.text.startsWith('/')) {
+        console.log(`🔍 [handleTelegramUpdate] Routing command to handleCommands: "${msg.text}"`);
+        await handleCommands(msg);
         return;
       }
       
@@ -1461,6 +1738,13 @@ if (isStandalone) {
   bot.on('message', async (msg) => {
     try {
       if (msg.text && !msg.text.startsWith('/start')) {
+        // Handle other commands first (same logic as webhook handler)
+        if (msg.text.startsWith('/')) {
+          console.log(`🔍 [Polling] Routing command to handleCommands: "${msg.text}"`);
+          await handleCommands(msg);
+          return;
+        }
+        
         // Use the same logic as webhook handler to prevent double processing
         const stateBefore = userState[msg.chat.id];
         const wasInDoneState = stateBefore && stateBefore.step === 'done';
@@ -1503,4 +1787,25 @@ if (isStandalone) {
   console.log('✅ Standalone bot ready - polling mode active');
 }
 
-module.exports = { bot, handleTelegramUpdate, setupWebhook };
+// Function to set up bot commands with descriptions
+async function setupBotCommands() {
+  try {
+    const commands = [
+      { command: 'start', description: 'Create your natal chart' },
+      { command: 'about', description: 'About AstroHabibi' },
+      { command: 'natal_chart', description: 'View your saved natal chart' },
+      { command: 'asteroids', description: 'View asteroids in your chart' },
+      { command: 'fixed_stars', description: 'View fixed stars in your chart' },
+      { command: 'transit_asteroids', description: 'Current transit asteroids' },
+      { command: 'transit_fixed_stars', description: 'Current transit fixed stars' },
+      { command: 'help', description: 'Show available commands' }
+    ];
+    
+    await bot.setMyCommands(commands);
+    console.log('✅ Bot commands set up successfully');
+  } catch (error) {
+    console.error('❌ Error setting up bot commands:', error);
+  }
+}
+
+module.exports = { bot, handleTelegramUpdate, setupWebhook, setupBotCommands };

@@ -1,4 +1,6 @@
 const swisseph = require('swisseph');
+const path = require('path');
+swisseph.swe_set_ephe_path(path.join(__dirname, '../node_modules/swisseph/ephe'));
 
 // Helper: get current Julian Day in UT
 function getTodayJulianDay() {
@@ -85,11 +87,13 @@ function getLiveTransits(chartData) {
 
   // Add major asteroids to transits (they move fast enough to be relevant)
   const transitAsteroids = [
-    { name: 'CERES', id: 1 },
-    { name: 'PALLAS', id: 2 },
-    { name: 'JUNO', id: 3 },
-    { name: 'VESTA', id: 4 },
-    { name: 'CHIRON', id: 2060 }  // Chiron is especially important for transits
+    { name: 'CERES', id: swisseph.SE_CERES },      // Swiss Ephemeris constant = 17
+    { name: 'PALLAS', id: swisseph.SE_PALLAS },    // Swiss Ephemeris constant = 18
+    { name: 'JUNO', id: swisseph.SE_JUNO },        // Swiss Ephemeris constant = 19
+    { name: 'VESTA', id: swisseph.SE_VESTA },      // Swiss Ephemeris constant = 20
+    { name: 'CHIRON', id: swisseph.SE_CHIRON },    // Swiss Ephemeris constant = 15 - especially important for transits
+    { name: 'PSYCHE', id: 16 },                    // Direct ID - works with proper ephe path
+    { name: 'HYGEIA', id: 10 }                     // Direct ID - works with proper ephe path
   ];
 
   // Combine planets and asteroids for transit calculations

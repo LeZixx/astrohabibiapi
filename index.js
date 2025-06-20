@@ -23,7 +23,7 @@ const cors = require("cors");
 console.log("🚀 Starting AstroHabibi server...");
 const swisseph = require("swisseph");
 const path = require("path");
-swisseph.swe_set_ephe_path(path.join(__dirname, "ephe"));
+swisseph.swe_set_ephe_path(path.join(__dirname, "node_modules/swisseph/ephe"));
 
 const app = express();
 app.use(cors());

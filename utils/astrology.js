@@ -1,6 +1,6 @@
 const swisseph = require('swisseph');
 const path = require('path');
-swisseph.swe_set_ephe_path(path.join(__dirname, '../ephe'));
+swisseph.swe_set_ephe_path(path.join(__dirname, '../node_modules/swisseph/ephe'));
 const { DateTime } = require('luxon');
 const axios = require('axios');
 const tzlookup = require('tz-lookup');
@@ -8,14 +8,14 @@ const tzlookup = require('tz-lookup');
 // Major asteroids with tight orbs for natal and transit charts
 function calculateAsteroids(julianDay) {
   const majorAsteroids = [
-    { name: 'CERES', id: 1 },
-    { name: 'PALLAS', id: 2 },
-    { name: 'JUNO', id: 3 },
-    { name: 'VESTA', id: 4 },
-    { name: 'CHIRON', id: 2060 },
-    { name: 'EROS', id: 433 },
-    { name: 'PSYCHE', id: 16 },
-    { name: 'HYGEIA', id: 10 }
+    { name: 'CERES', id: swisseph.SE_CERES },      // Swiss Ephemeris constant = 17
+    { name: 'PALLAS', id: swisseph.SE_PALLAS },    // Swiss Ephemeris constant = 18
+    { name: 'JUNO', id: swisseph.SE_JUNO },        // Swiss Ephemeris constant = 19
+    { name: 'VESTA', id: swisseph.SE_VESTA },      // Swiss Ephemeris constant = 20
+    { name: 'CHIRON', id: swisseph.SE_CHIRON },    // Swiss Ephemeris constant = 15
+    { name: 'PSYCHE', id: 16 },                    // Direct ID - works with proper ephe path
+    { name: 'HYGEIA', id: 10 }                     // Direct ID - works with proper ephe path
+    // Note: EROS (433) requires separate ephemeris file se00433s.se1 not included in basic distribution
   ];
 
   const asteroidPositions = [];
@@ -25,13 +25,23 @@ function calculateAsteroids(julianDay) {
       const result = swisseph.swe_calc_ut(julianDay, asteroid.id, swisseph.SEFLG_SPEED);
       console.log(`🪨 ${asteroid.name} (${asteroid.id}): ${result.longitude}°`);
       
-      asteroidPositions.push({
-        name: asteroid.name,
-        longitude: result.longitude,
-        retrograde: result.longitudeSpeed < 0,
-        type: 'asteroid',
-        orb: 2.5 // Tight orb for asteroids
-      });
+      // Validate the result before using it
+      if (result && typeof result.longitude === 'number' && !isNaN(result.longitude) && 
+          typeof result.longitudeSpeed === 'number' && !isNaN(result.longitudeSpeed)) {
+        asteroidPositions.push({
+          name: asteroid.name,
+          longitude: result.longitude,
+          retrograde: result.longitudeSpeed < 0,
+          type: 'asteroid',
+          orb: 2.5 // Tight orb for asteroids
+        });
+      } else {
+        console.warn(`⚠️ Invalid calculation result for ${asteroid.name} (${asteroid.id}):`, {
+          longitude: result?.longitude,
+          longitudeSpeed: result?.longitudeSpeed,
+          fullResult: result
+        });
+      }
     } catch (e) {
       console.warn(`⚠️ Failed to calculate ${asteroid.name}:`, e.message);
     }

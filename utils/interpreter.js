@@ -10,6 +10,17 @@ const ENGLISH_SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'L
 const FRENCH_SIGNS = ['Bélier', 'Taureau', 'Gémeaux', 'Cancer', 'Lion', 'Vierge', 'Balance', 'Scorpion', 'Sagittaire', 'Capricorne', 'Verseau', 'Poissons'];
 
 function signDetails(lon) {
+  // Validate input
+  if (typeof lon !== 'number' || isNaN(lon) || lon === null || lon === undefined) {
+    console.warn('⚠️ Invalid longitude value passed to signDetails:', lon);
+    return {
+      idx: 0,
+      signAr: 'unknown',
+      degree: 0,
+      minutes: 0
+    };
+  }
+  
   const norm = ((lon % 360) + 360) % 360;
   const idx = Math.floor(norm / 30);
   const degree = Math.floor(norm % 30);
@@ -23,6 +34,12 @@ function signDetails(lon) {
 }
 
 function degreeToSign(lon) {
+  // Validate input
+  if (typeof lon !== 'number' || isNaN(lon) || lon === null || lon === undefined) {
+    console.warn('⚠️ Invalid longitude value passed to degreeToSign:', lon);
+    return 'Unknown';
+  }
+  
   const norm = ((lon % 360) + 360) % 360;
   const idx = Math.floor(norm / 30);
   return ENGLISH_SIGNS[idx] || 'unknown';
